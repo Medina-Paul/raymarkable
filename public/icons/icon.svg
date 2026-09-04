@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="orangeLeg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark Tile Container -->
+  <rect width="512" height="512" rx="113" fill="url(#tileBg)"/>
+  <rect width="512" height="512" rx="113" fill="none" stroke="#27272a" stroke-width="8"/>
+
+  <!-- Geometric Monogram R -->
+  <g transform="translate(40.96, 40.96)">
+    <svg width="430.08" height="430.08" viewBox="0 0 100 100">
+      <!-- Vertical Spine & Top Loop (White) -->
+      <path d="M22 18 H58 C72 18 80 26 80 37 C80 48 72 55 58 55 H36 V82 H22 V18 Z M36 30 V43 H56 C63 43 67 39 67 36.5 C67 34 63 30 56 30 H36 Z" 
+            fill="#ffffff" />
+      
+      <!-- Dynamic Angled Orange Leg -->
+      <path d="M49 50 L77 82 H60 L38 55 H46 Z" 
+            fill="url(#orangeLeg)" />
+
+      <!-- Orange Spark Accent Dot at apex -->
+      <circle cx="78" cy="22" r="4.5" fill="#f97316" />
+    </svg>
+  </g>
+</svg>

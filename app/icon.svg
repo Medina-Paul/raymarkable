@@ -1,0 +1,17 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .r-bg { fill: #09090b; stroke: #27272a; }
+      .r-white { fill: #ffffff; }
+      .r-orange { fill: #f97316; }
+    </style>
+  </defs>
+  <rect width="32" height="32" rx="7" class="r-bg" stroke-width="1"/>
+  <g transform="translate(3.5, 3.5)">
+    <svg width="25" height="25" viewBox="0 0 100 100">
+      <path d="M22 18 H58 C72 18 80 26 80 37 C80 48 72 55 58 55 H36 V82 H22 V18 Z M36 30 V43 H56 C63 43 67 39 67 36.5 C67 34 63 30 56 30 H36 Z" class="r-white" />
+      <path d="M49 50 L77 82 H60 L38 55 H46 Z" class="r-orange" />
+      <circle cx="78" cy="22" r="5" class="r-orange" />
+    </svg>
+  </g>
+</svg>

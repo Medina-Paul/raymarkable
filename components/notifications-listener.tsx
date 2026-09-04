@@ -105,7 +105,7 @@ export function NotificationsListener() {
         // 3. Fire native OS system notification on phone/desktop (Lock Screen & Banner)
         if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
           try {
-            if ("serviceWorker" in navigator) {
+            if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
               navigator.serviceWorker.ready.then((reg) => {
                 reg.showNotification("Raymarkable Nudge", {
                   body: n.message,

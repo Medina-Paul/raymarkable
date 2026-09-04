@@ -57,7 +57,7 @@ export function useDeviceNotifications() {
       if (res === "granted") {
         toast.success("Phone / device alerts enabled!");
         // Dispatch instant welcome confirmation banner
-        if ("serviceWorker" in navigator) {
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
           navigator.serviceWorker.ready.then((reg) => {
             reg.showNotification("Raymarkable", {
               body: "Device alerts enabled! Teammate nudges will appear on your lock screen.",
@@ -65,6 +65,11 @@ export function useDeviceNotifications() {
               badge: "/icons/icon-192x192.png",
               vibrate: [200, 100, 200],
             } as any);
+          });
+        } else if ("Notification" in window) {
+          new Notification("Raymarkable", {
+            body: "Device alerts enabled! Teammate nudges will appear on your lock screen.",
+            icon: "/icons/icon-192x192.png",
           });
         }
       } else if (res === "denied") {

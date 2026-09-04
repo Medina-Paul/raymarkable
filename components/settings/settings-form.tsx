@@ -4,57 +4,60 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Target, Palette, Sun, Moon, Laptop, Smartphone, Download, CheckCircle2, Share, Bell, Volume2, VolumeX, AlertTriangle, Trash2 } from "lucide-react";
+import {
+  Target,
+  Palette,
+  Sun,
+  Moon,
+  Laptop,
+  Smartphone,
+  Download,
+  CheckCircle2,
+  Share,
+  Bell,
+  BellRing,
+  Volume2,
+  VolumeX,
+  AlertTriangle,
+  Trash2,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { useUpdateProfile, useDeleteAccount } from "@/lib/hooks/use-habits";
+import { useDeviceNotifications } from "@/lib/hooks/use-device-notifications";
 import { usePwa } from "@/components/pwa/pwa-provider";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { playChime } from "@/components/notifications-listener";
 
 export function SettingsForm({ initialThreshold }: { initialThreshold: number }) {
-  const [threshold, setThreshold] = useState(initialThreshold);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const router = useRouter();
-  const updateProfile = useUpdateProfile();
-  const deleteAccountMutation = useDeleteAccount();
+  const supabase = createClient();
   const { theme, setTheme } = useTheme();
   const { isInstallable, isInstalled, isIos, promptInstall } = usePwa();
-  const [mounted, setMounted] = useState(false);
-  const supabase = createClient();
+  const updateProfile = useUpdateProfile();
+  const deleteAccountMutation = useDeleteAccount();
+  const { soundEnabled, toggleSound, permission, requestPermission, sendTestAlert } = useDeviceNotifications();
 
-  // Audio Chime Preference (persisted in localStorage)
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [threshold, setThreshold] = useState(initialThreshold);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    if (typeof window !== "undefined") {
-      setSoundEnabled(localStorage.getItem("raymarkable_sound_enabled") !== "false");
-    }
   }, []);
 
-  const handleSave = () => {
-    updateProfile.mutate({ successThreshold: threshold }, {
-      onSuccess: () => {
-        toast.success("Settings saved successfully!");
-        router.refresh();
-      },
-      onError: () => {
-        toast.error("Failed to save settings");
+  const handleSaveGoal = () => {
+    updateProfile.mutate(
+      { successThreshold: threshold },
+      {
+        onSuccess: () => {
+          toast.success("Goal saved successfully!");
+          router.refresh();
+        },
+        onError: () => {
+          toast.error("Failed to save goal");
+        },
       }
-    });
-  };
-
-  const handleToggleSound = () => {
-    const nextVal = !soundEnabled;
-    setSoundEnabled(nextVal);
-    localStorage.setItem("raymarkable_sound_enabled", nextVal ? "true" : "false");
-    if (nextVal) {
-      playChime();
-      toast.success("Audio chime enabled");
-    } else {
-      toast.info("Audio chime muted");
-    }
+    );
   };
 
   const handleDeleteAccount = async () => {
@@ -71,27 +74,27 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
 
   return (
     <div className="space-y-12">
-      {/* Accountability & Goals Section */}
+      {/* 1. Accountability & Goals */}
       <section>
         <div className="flex items-center gap-2 mb-6">
           <Target className="w-5 h-5 text-gray-500 dark:text-zinc-400" />
           <h2 className="text-lg font-bold text-black dark:text-white">Accountability & Goals</h2>
         </div>
-        
+
         <div className="space-y-4 max-w-md">
           <div>
             <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">
               Daily Success Threshold
             </label>
             <p className="text-xs text-gray-500 dark:text-zinc-400 mb-4">
-              What percentage of your daily habits must be completed for the day to be marked as "Green" (Successful) on your Progress heatmap?
+              What percentage of your daily habits must be completed for the day to be marked as &quot;Green&quot; (Successful) on your Progress heatmap?
             </p>
-            
+
             <div className="flex items-center gap-4">
-              <input 
-                type="range" 
-                min="10" 
-                max="100" 
+              <input
+                type="range"
+                min="10"
+                max="100"
                 step="5"
                 value={threshold}
                 onChange={(e) => setThreshold(Number(e.target.value))}
@@ -102,7 +105,7 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
 
             <button
               type="button"
-              onClick={handleSave}
+              onClick={handleSaveGoal}
               disabled={updateProfile.isPending || threshold === initialThreshold}
               className="mt-4 px-4 py-2 bg-black dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-default"
             >
@@ -112,13 +115,13 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
         </div>
       </section>
 
-      {/* Appearance Section */}
+      {/* 2. Appearance */}
       <section>
         <div className="flex items-center gap-2 mb-6">
           <Palette className="w-5 h-5 text-gray-500 dark:text-zinc-400" />
           <h2 className="text-lg font-bold text-black dark:text-white">Appearance</h2>
         </div>
-        
+
         <div className="space-y-4 max-w-md">
           <div>
             <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">
@@ -129,39 +132,24 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
             </p>
             {mounted ? (
               <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setTheme("light")}
-                  className={`px-3 py-2.5 border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    theme === "light"
-                      ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
-                      : "border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700"
-                  }`}
-                >
-                  <Sun className="w-4 h-4" /> Light
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTheme("dark")}
-                  className={`px-3 py-2.5 border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    theme === "dark"
-                      ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
-                      : "border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700"
-                  }`}
-                >
-                  <Moon className="w-4 h-4" /> Dark
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTheme("system")}
-                  className={`px-3 py-2.5 border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    theme === "system"
-                      ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
-                      : "border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700"
-                  }`}
-                >
-                  <Laptop className="w-4 h-4" /> System
-                </button>
+                {[
+                  { value: "light", label: "Light", Icon: Sun },
+                  { value: "dark", label: "Dark", Icon: Moon },
+                  { value: "system", label: "System", Icon: Laptop },
+                ].map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setTheme(value)}
+                    className={`px-3 py-2.5 border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      theme === value
+                        ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
+                        : "border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" /> {label}
+                  </button>
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-3">
@@ -174,7 +162,7 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
         </div>
       </section>
 
-      {/* Notifications Section */}
+      {/* 3. Notifications */}
       <section>
         <div className="flex items-center gap-2 mb-6">
           <Bell className="w-5 h-5 text-gray-500 dark:text-zinc-400" />
@@ -189,6 +177,7 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
             </p>
           </div>
 
+          {/* Audio Chime Row */}
           <div className="flex items-center justify-between gap-4 pt-3 border-t border-gray-100 dark:border-zinc-800">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5">
@@ -202,7 +191,7 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
 
             <button
               type="button"
-              onClick={handleToggleSound}
+              onClick={toggleSound}
               className={`px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer shrink-0 border ${
                 soundEnabled
                   ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white hover:bg-gray-800 dark:hover:bg-zinc-200"
@@ -212,10 +201,55 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
               {soundEnabled ? "Enabled" : "Muted"}
             </button>
           </div>
+
+          {/* Phone / Device Alerts Row */}
+          <div className="flex items-center justify-between gap-4 pt-3 border-t border-gray-100 dark:border-zinc-800">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5">
+                <BellRing className="w-3.5 h-3.5 text-blue-500" />
+                Phone / Device Alerts
+              </p>
+              <p className="text-[11px] text-gray-500 dark:text-zinc-400">
+                {permission === "granted"
+                  ? "Native lock screen alerts active on this device"
+                  : permission === "denied"
+                  ? "Notifications blocked in your browser or phone settings"
+                  : "Allow system banners when teammates nudge you"}
+              </p>
+            </div>
+
+            {permission === "granted" ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-2 py-1">
+                  Active
+                </span>
+                <button
+                  type="button"
+                  onClick={sendTestAlert}
+                  className="px-2.5 py-1 text-xs font-semibold text-gray-700 dark:text-zinc-300 border border-gray-200 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  title="Send test notification to verify"
+                >
+                  Test
+                </button>
+              </div>
+            ) : permission === "denied" ? (
+              <span className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 px-2 py-1 shrink-0">
+                Blocked
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={requestPermission}
+                className="px-3 py-1.5 text-xs font-bold bg-black text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
+              >
+                Enable
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
-      {/* Application & Installation Section */}
+      {/* 4. Application & Installation */}
       <section>
         <div className="flex items-center gap-2 mb-6">
           <Smartphone className="w-5 h-5 text-gray-500 dark:text-zinc-400" />
@@ -225,12 +259,12 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
         <div className="space-y-4 max-w-md">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center shadow-sm border border-gray-200 dark:border-zinc-800">
-              <Image 
-                src="/icon.svg" 
-                alt="Raymarkable Icon" 
-                width={40} 
-                height={40} 
-                className="w-full h-full object-cover" 
+              <Image
+                src="/icon.svg"
+                alt="Raymarkable Icon"
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
               />
             </div>
             <div className="min-w-0">
@@ -263,7 +297,7 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
               <Download className="w-4 h-4" /> Install App to Device
             </button>
           ) : (
-            <div className="text-xs text-gray-500 dark:text-zinc-400 ">
+            <div className="text-xs text-gray-500 dark:text-zinc-400">
               <p className="font-medium">
                 To install on your phone or desktop, click the install icon in your browser&apos;s address bar or use the browser menu &gt; <strong>&apos;Install Raymarkable&apos;</strong>.
               </p>
@@ -272,7 +306,7 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
         </div>
       </section>
 
-      {/* Delete Account */}
+      {/* 5. Delete Account */}
       <section>
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />

@@ -101,6 +101,31 @@ export function NotificationsListener() {
             onClick: () => readMutation.mutate(n.id),
           },
         });
+
+        // 3. Fire native OS system notification on phone/desktop (Lock Screen & Banner)
+        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+          try {
+            if ("serviceWorker" in navigator) {
+              navigator.serviceWorker.ready.then((reg) => {
+                reg.showNotification("Raymarkable Nudge", {
+                  body: n.message,
+                  icon: "/icons/icon-192x192.png",
+                  badge: "/icons/icon-192x192.png",
+                  tag: `nudge-${n.id}`,
+                  vibrate: [200, 100, 200],
+                  data: { url: "/dashboard/habits" },
+                } as any);
+              });
+            } else {
+              new Notification("Raymarkable Nudge", {
+                body: n.message,
+                icon: "/icons/icon-192x192.png",
+              });
+            }
+          } catch (e) {
+            console.warn("Failed to trigger native notification:", e);
+          }
+        }
       }
     });
   }, [notifications, readMutation]);

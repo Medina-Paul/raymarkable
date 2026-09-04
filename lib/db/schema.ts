@@ -119,7 +119,6 @@ export const teams = pgTable(
     createdBy: uuid("created_by")
       .notNull()
       .references(() => users.id),
-    discordWebhookUrl: text("discord_webhook_url"),
     abandonedAt: timestamp("abandoned_at"), // Timestamped when empty; cleaned up after 3 days by cron
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

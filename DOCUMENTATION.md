@@ -1,7 +1,7 @@
 # Raymarkable — Engineering & Architecture Documentation
 
 > **"Build better habits. Produce remarkable results."**  
-> Raymarkable is a full-stack, mobile-responsive, offline-ready habit tracking Progressive Web Application (PWA) built on modern web standards. Inspired by James Clear's *Atomic Habits*, it pairs individual habit mastery with accountability pods, real-time social feeds, dynamic streak calculation, and granular visual progress metrics.
+> Raymarkable is a full-stack, mobile-responsive, habit tracking Progressive Web Application (PWA) built on modern web standards.It pairs individual habit mastery with accountability pods, real-time social feeds, dynamic streak calculation, and granular visual progress metrics.
 
 ---
 
@@ -145,7 +145,6 @@ teams (Max 5 Pods)
 ├── id: uuid (PK)
 ├── name: varchar(25)
 ├── created_by: uuid (FK -> users.id)
-├── discord_webhook_url: text (nullable)
 ├── abandoned_at: timestamp (set when 0 members remain)
 └── created_at: timestamp
 

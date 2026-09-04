@@ -104,27 +104,47 @@ export function NotificationsListener() {
 
         // 3. Fire native OS system notification on phone/desktop (Lock Screen & Banner)
         if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-          try {
-            if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-              navigator.serviceWorker.ready.then((reg) => {
-                reg.showNotification("Raymarkable Nudge", {
-                  body: n.message,
-                  icon: "/icons/icon-192x192.png",
-                  badge: "/icons/icon-192x192.png",
-                  tag: `nudge-${n.id}`,
-                  vibrate: [200, 100, 200],
-                  data: { url: "/dashboard/habits" },
-                } as any);
-              });
-            } else {
-              new Notification("Raymarkable Nudge", {
-                body: n.message,
-                icon: "/icons/icon-192x192.png",
-              });
+          const payload = {
+            body: n.message,
+            icon: "/icons/icon-192x192.png",
+            badge: "/icons/icon-192x192.png",
+            tag: `nudge-${n.id}`,
+            vibrate: [200, 100, 200],
+            data: { url: "/dashboard/habits" },
+          };
+
+          const dispatchNative = async () => {
+            if ("serviceWorker" in navigator) {
+              try {
+                // Check existing registration or wait up to 1.5s for ready
+                const reg =
+                  (await navigator.serviceWorker.getRegistration()) ||
+                  (await Promise.race([
+                    navigator.serviceWorker.ready,
+                    new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+                  ]));
+
+                if (reg && "showNotification" in reg) {
+                  await reg.showNotification("Raymarkable Nudge", payload as any);
+                  return;
+                }
+              } catch (swErr) {
+                console.warn("[Notification] SW showNotification failed, trying fallback:", swErr);
+              }
             }
-          } catch (e) {
-            console.warn("Failed to trigger native notification:", e);
-          }
+
+            // Fallback for browsers/environments that permit constructor notifications
+            try {
+              new Notification("Raymarkable Nudge", {
+                body: payload.body,
+                icon: payload.icon,
+              });
+            } catch (e) {
+              console.warn("[Notification] Window Notification fallback unavailable:", e);
+            }
+          };
+
+          dispatchNative();
         }
       }
     });

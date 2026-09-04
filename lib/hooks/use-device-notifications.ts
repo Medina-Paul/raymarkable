@@ -98,16 +98,36 @@ export function useDeviceNotifications() {
       data: { url: "/dashboard/habits" },
     };
 
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.showNotification("Raymarkable Nudge", payload as any);
-      });
-    } else {
-      new Notification("Raymarkable Nudge", {
-        body: payload.body,
-        icon: payload.icon,
-      });
-    }
+    const dispatchTest = async () => {
+      if ("serviceWorker" in navigator) {
+        try {
+          const reg =
+            (await navigator.serviceWorker.getRegistration()) ||
+            (await Promise.race([
+              navigator.serviceWorker.ready,
+              new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+            ]));
+
+          if (reg && "showNotification" in reg) {
+            await reg.showNotification("Raymarkable Nudge", payload as any);
+            return;
+          }
+        } catch (swErr) {
+          console.warn("[Test Notification] SW showNotification failed, trying fallback:", swErr);
+        }
+      }
+
+      try {
+        new Notification("Raymarkable Nudge", {
+          body: payload.body,
+          icon: payload.icon,
+        });
+      } catch (e) {
+        console.warn("[Test Notification] Window Notification fallback unavailable:", e);
+      }
+    };
+
+    dispatchTest();
 
     toast.success("Test alert sent to your device!");
   }, [soundEnabled]);

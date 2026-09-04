@@ -38,13 +38,19 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     // to prevent stale cached HTML from causing hydration mismatches during active development.
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       if (process.env.NODE_ENV === "production") {
-        window.addEventListener("load", () => {
+        const registerSW = () => {
           navigator.serviceWorker
             .register("/sw.js")
             .catch((error) => {
               console.warn("[PWA] Service Worker registration failed:", error);
             });
-        });
+        };
+
+        if (document.readyState === "complete") {
+          registerSW();
+        } else {
+          window.addEventListener("load", registerSW);
+        }
       } else {
         // In development, clear any lingering service workers on localhost
         navigator.serviceWorker.getRegistrations().then((registrations) => {

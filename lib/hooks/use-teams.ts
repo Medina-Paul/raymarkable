@@ -145,7 +145,8 @@ export function useNotifications() {
       if (!res.ok) throw new Error("Failed to fetch notifications");
       return res.json();
     },
-    staleTime: 60000,
+    staleTime: 5000,
+    refetchInterval: 10000, // Background fallback: checks every 10s if WebSocket reconnects
   });
 }
 

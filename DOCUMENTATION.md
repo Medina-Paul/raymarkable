@@ -378,7 +378,8 @@ Create a `.env` file in the root directory:
 
 ```env
 # Supabase Transaction Pooler URL
-DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
+# Supabase Connection Pooler (Transaction Mode, port 6543 for serverless/Vercel)
+DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
 
 # Supabase Public API Keys
 NEXT_PUBLIC_SUPABASE_URL="https://[REF].supabase.co"

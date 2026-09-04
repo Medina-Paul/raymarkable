@@ -2,7 +2,7 @@
 
 > **"Build better habits. Produce remarkable results."**
 
-Raymarkable is a full-stack, mobile-first, offline-ready habit tracking Progressive Web Application (PWA) inspired by James Clear's *Atomic Habits*. It pairs individual habit formation with tight-knit accountability pods (max 5 members), real-time social feeds, anti-cheat streak dynamics, and rich analytics.
+Raymarkable is a full-stack, mobile-first, offline-ready habit tracking Progressive Web Application (PWA). It pairs individual habit formation with tight-knit accountability pods (max 5 members), real-time social feeds, anti-cheat streak dynamics, and rich analytics.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=flat&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2-blue?style=flat&logo=react)](https://react.dev/)
@@ -78,7 +78,7 @@ Create a `.env` file in the project root:
 
 ```env
 # Supabase Transaction Pooler URL
-DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
+DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
 
 # Supabase Public Keys
 NEXT_PUBLIC_SUPABASE_URL="https://[REF].supabase.co"

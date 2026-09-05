@@ -1,5 +1,5 @@
 // Raymarkable Service Worker
-const CACHE_NAME = 'raymarkable-v2';
+const CACHE_NAME = 'raymarkable-v3';
 
 const STATIC_ASSETS = [
   '/',
@@ -124,12 +124,18 @@ self.addEventListener('push', (event) => {
     badge: data.badge || '/icons/icon-192x192.png',
     vibrate: [200, 100, 200],
     tag: data.tag || 'raymarkable-nudge',
+    renotify: true,
     data: {
       url: data.url || '/dashboard/habits',
+      dateOfArrival: Date.now(),
     },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options).catch((err) => {
+      console.error('[SW] Failed to show push notification:', err);
+    })
+  );
 });
 
 // Handle user clicking on a native system notification banner

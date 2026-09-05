@@ -65,7 +65,10 @@ export async function sendWebPush(
       };
 
       try {
-        await webpush.sendNotification(pushConfig, notificationContent);
+        await webpush.sendNotification(pushConfig, notificationContent, {
+          TTL: 86400, // Retain for 24 hours on push server if device is temporarily offline
+          urgency: 'high', // Signal push gateways (APNs/FCM) to wake sleeping/background devices immediately
+        });
         sentCount++;
       } catch (err: unknown) {
         const error = err as { statusCode?: number; message?: string };

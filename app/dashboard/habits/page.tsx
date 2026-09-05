@@ -182,6 +182,7 @@ export default function HabitsPage() {
       {/* Edit Modal */}
       {editingHabit && (
         <HabitModal
+          key={editingHabit.id}
           habit={editingHabit}
           isPending={updateMutation.isPending}
           onClose={() => setEditingHabit(null)}

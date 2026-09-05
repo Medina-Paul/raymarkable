@@ -1,7 +1,6 @@
 import { useProfile } from "@/lib/hooks/use-habits";
 import { Flame, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 
 export function ProfileCard() {
   const { data: profile, isLoading } = useProfile();

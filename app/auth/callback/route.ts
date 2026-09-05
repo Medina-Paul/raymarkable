@@ -13,6 +13,10 @@ export async function GET(request: Request) {
 
     const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code)
     
+    if (error) {
+      console.error("[Auth Callback] exchangeCodeForSession failed:", error.message || error);
+    }
+    
     if (!error && user) {
       // Upsert the user to our public schema
       try {
@@ -42,6 +46,8 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}${next}`)
       }
     }
+  } else {
+    console.warn("[Auth Callback] No code provided in URL searchParams");
   }
 
   // If there's an error or no code, redirect back to login

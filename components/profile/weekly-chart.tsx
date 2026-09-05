@@ -2,7 +2,7 @@
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useTheme } from "next-themes";
-import { useState, useEffect } from "react";
+import { useMounted } from "@/lib/hooks/use-mounted";
 
 const CustomAxisTick = ({ x, y, payload }: any) => {
   const [day, date] = payload.value.split("|");
@@ -57,11 +57,7 @@ const CustomTooltip = (props: any) => {
 
 export function WeeklyChart({ data }: { data: any[] }) {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   const isDark = mounted && resolvedTheme === "dark";
   const gridColor = isDark ? "#27272a" : "#e5e7eb";

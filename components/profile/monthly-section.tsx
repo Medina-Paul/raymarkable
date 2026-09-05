@@ -33,7 +33,6 @@ export function MonthlySection({
   calendarData,
   initialMonth,
   initialYear,
-  successThreshold,
 }: MonthlySectionProps) {
   const [displayMonth, setDisplayMonth] = useState(initialMonth);
   const [displayYear, setDisplayYear] = useState(initialYear);

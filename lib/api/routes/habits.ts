@@ -58,16 +58,7 @@ export const habitsRoutes = new Elysia()
   .post('/habits', async ({ user, body, set }) => {
     if (!user) { set.status = 401; return 'Unauthorized'; }
     
-    let { 
-      title, 
-      category, 
-      date, 
-      deadlineTime,
-      habitType = 'boolean',
-      targetValue,
-      unit,
-      scheduledDays
-    } = body as { 
+    const payload = body as { 
       title: string; 
       category: string; 
       date: string; 
@@ -77,7 +68,12 @@ export const habitsRoutes = new Elysia()
       unit?: string | null;
       scheduledDays?: string[] | null;
     };
-    if (!deadlineTime) deadlineTime = "23:59";
+
+    const { date, habitType = 'boolean', targetValue, scheduledDays } = payload;
+    const deadlineTime = payload.deadlineTime || "23:59";
+    const title = payload.title?.trim()?.substring(0, 60);
+    const category = payload.category?.trim()?.substring(0, 25);
+    const unit = payload.unit?.trim()?.substring(0, 20) || null;
     
     // Anti-cheat / 48-Hour Grace Window:
     // Users can log today, tomorrow, or yesterday (if they forgot to log before midnight),
@@ -90,10 +86,6 @@ export const habitsRoutes = new Elysia()
       set.status = 400;
       return 'Cannot create habits older than the 48-hour grace period';
     }
-
-    title = title?.trim()?.substring(0, 60);
-    category = category?.trim()?.substring(0, 25);
-    unit = unit?.trim()?.substring(0, 20) || null;
     
     if (!title || !category) {
       set.status = 400;

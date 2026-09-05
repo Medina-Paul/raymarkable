@@ -46,6 +46,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Pass-through for localhost / dev: NEVER cache during local development
+  // Ensures hot-reloads and Turbopack work seamlessly while push notifications remain active
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+    return;
+  }
+
   // Pass-through for API and Supabase Auth calls (Always live network)
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/auth') || url.hostname.includes('supabase.co')) {
     return;
@@ -98,6 +104,32 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
+});
+
+// Handle incoming native Web Push events (wakes SW even when tabs/app are closed)
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch {
+      data = { body: event.data.text() };
+    }
+  }
+
+  const title = data.title || 'Raymarkable';
+  const options = {
+    body: data.body || 'You have a new update from your accountability team.',
+    icon: data.icon || '/icons/icon-192x192.png',
+    badge: data.badge || '/icons/icon-192x192.png',
+    vibrate: [200, 100, 200],
+    tag: data.tag || 'raymarkable-nudge',
+    data: {
+      url: data.url || '/dashboard/habits',
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Handle user clicking on a native system notification banner

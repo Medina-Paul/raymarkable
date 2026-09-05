@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useMounted } from "@/lib/hooks/use-mounted";
 import Image from "next/image";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -35,15 +36,11 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
   const { isInstallable, isInstalled, isIos, promptInstall } = usePwa();
   const updateProfile = useUpdateProfile();
   const deleteAccountMutation = useDeleteAccount();
-  const { soundEnabled, toggleSound, permission, requestPermission, sendTestAlert } = useDeviceNotifications();
+  const { soundEnabled, toggleSound, permission, isSubscribing, requestPermission, sendTestAlert } = useDeviceNotifications();
 
   const [threshold, setThreshold] = useState(initialThreshold);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   const handleSaveGoal = () => {
     updateProfile.mutate(
@@ -240,9 +237,10 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
               <button
                 type="button"
                 onClick={requestPermission}
-                className="px-3 py-1.5 text-xs font-bold bg-black text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
+                disabled={isSubscribing}
+                className="px-3 py-1.5 text-xs font-bold bg-black text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
               >
-                Enable
+                {isSubscribing ? "Enabling..." : "Enable"}
               </button>
             )}
           </div>

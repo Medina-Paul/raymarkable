@@ -14,7 +14,7 @@ export default function Home() {
       await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
     } catch (error) {
@@ -82,7 +82,7 @@ export default function Home() {
         <div className="lg:hidden pt-6 border-t border-zinc-200 dark:border-zinc-800">
           <blockquote className="space-y-1">
             <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 italic">
-              "Habits are the compound interest of self-improvement."
+              &ldquo;Habits are the compound interest of self-improvement.&rdquo;
             </p>
             <footer className="text-xs text-zinc-500 dark:text-zinc-400">
               — James Clear
@@ -96,7 +96,7 @@ export default function Home() {
         <div className="max-w-md space-y-4">
           <blockquote className="space-y-3">
             <p className="text-2xl lg:text-3xl font-medium tracking-tight leading-snug">
-              "Habits are the compound interest of self-improvement."
+              &ldquo;Habits are the compound interest of self-improvement.&rdquo;
             </p>
             <footer className="text-sm font-medium text-zinc-400">
               — James Clear

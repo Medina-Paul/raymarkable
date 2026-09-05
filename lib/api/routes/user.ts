@@ -3,6 +3,7 @@ import { authPlugin } from '@/lib/api/auth';
 import { db } from '@/lib/db';
 import { habits, habitLogs, users, teams } from '@/lib/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
+import { calculateStreaks, normalizeDate } from '@/lib/services/streak';
 
 /*
 USER PROFILE, STREAK & ACCOUNT DELETION ROUTES
@@ -40,62 +41,16 @@ export const userRoutes = new Elysia()
       .where(eq(habits.userId, user.id))
       .orderBy(habitLogs.completedDate);
       
-    // Deduplicate dates into unique sorted strings (YYYY-MM-DD)
-    const logDates = Array.from(new Set(logs.map(l => {
-      if (typeof l.completedDate === 'string') return l.completedDate.split('T')[0];
-      if ((l.completedDate as any) instanceof Date) return (l.completedDate as any).toISOString().split('T')[0];
-      return String(l.completedDate);
-    }))).sort();
-    
-    let dynamicStreak = 0;
-    if (logDates.length > 0) {
-      let tempStreak = 0;
-      let prevDate = null;
-      
-      // Traverse historical logs to count consecutive days
-      for (let i = 0; i < logDates.length; i++) {
-        const dStr = logDates[i];
-        const [year, month, day] = dStr.split('-').map(Number);
-        const currDate = new Date(year, month - 1, day);
-        
-        if (!prevDate) {
-          tempStreak = 1;
-        } else {
-          const diffTime = currDate.getTime() - prevDate.getTime();
-          const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
-          
-          if (diffDays === 1) {
-            tempStreak++;
-          } else if (diffDays > 1) {
-            tempStreak = 1; // Gap detected -> reset streak counter
-          }
-        }
-        prevDate = currDate;
-      }
-  
-      // The streak remains alive if the user completed tasks either Today or Yesterday (48h grace)
-      const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-      
-      const lastLogDate = logDates[logDates.length - 1];
-      if (lastLogDate === todayStr || lastLogDate === yesterdayStr) {
-        dynamicStreak = tempStreak;
-      } else {
-        dynamicStreak = 0; // Streak broken if no completions yesterday or today
-      }
-    }
+    // 3. Dynamic Streak Calculation using centralized service
+    const { currentStreak } = calculateStreaks(logs.map(l => l.completedDate));
 
     return {
       name: me.name,
       avatarUrl: me.avatarUrl,
-      streak: dynamicStreak,
+      streak: currentStreak,
       totalHabits: totalHabits.length,
       completedHabits: completedCount.length,
-      latestActivity: latest ? { title: latest.title, date: typeof latest.date === 'string' ? latest.date.split('T')[0] : ((latest.date as any) instanceof Date ? (latest.date as any).toISOString().split('T')[0] : String(latest.date)) } : null
+      latestActivity: latest ? { title: latest.title, date: normalizeDate(latest.date) } : null
     };
   })
   

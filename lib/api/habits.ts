@@ -53,7 +53,7 @@ export async function toggleHabit(id: string): Promise<Habit> {
     method: 'PATCH',
   });
   if (!res.ok) throw new Error('Failed to toggle habit');
-  return { id, title: "", category: "", date: "", completed: false, habitType: "boolean", currentValue: 0 };
+  return res.json();
 }
 
 export async function deleteHabit(id: string): Promise<void> {

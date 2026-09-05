@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { X, Minus, Hash, CheckSquare } from "lucide-react";
 import type { Habit, CreateHabitInput, HabitType } from "@/lib/types/habit";
 import type { Category } from "@/lib/api/habits";
@@ -40,18 +40,19 @@ type Props = {
 export function HabitModal({ habit, isPending, onClose, onCreate, onUpdate }: Props) {
   const isEditing = habit !== null;
 
-  const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("");
+  const [title, setTitle] = useState(habit?.title || "");
+  const [category, setCategory] = useState(habit?.category || "");
   const [showCategories, setShowCategories] = useState(false);
   const [date, setDate] = useState(() => {
+    if (habit?.date) return habit.date;
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
-  const [deadlineTime, setDeadlineTime] = useState("");
-  const [habitType, setHabitType] = useState<HabitType>("boolean");
-  const [targetValue, setTargetValue] = useState<string>("");
-  const [unit, setUnit] = useState<string>("");
-  const [scheduledDays, setScheduledDays] = useState<string[]>([]);
+  const [deadlineTime, setDeadlineTime] = useState(habit?.deadlineTime || "");
+  const [habitType, setHabitType] = useState<HabitType>(habit?.habitType || "boolean");
+  const [targetValue, setTargetValue] = useState<string>(habit?.targetValue ? String(habit.targetValue) : "");
+  const [unit, setUnit] = useState<string>(habit?.unit || "");
+  const [scheduledDays, setScheduledDays] = useState<string[]>(habit?.scheduledDays || []);
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
 
   const { data: categories = [] } = useCategories();
@@ -76,31 +77,6 @@ export function HabitModal({ habit, isPending, onClose, onCreate, onUpdate }: Pr
     
     return TIME_OPTIONS.filter(t => t.value >= currentHHMM);
   }, [date, todayStr]);
-
-  // Prevent users from bypassing the filter if they select "Today" while having a past time selected
-  useEffect(() => {
-    if (date === todayStr && deadlineTime) {
-      const now = new Date();
-      const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      if (deadlineTime < currentHHMM) {
-        setDeadlineTime("");
-      }
-    }
-  }, [date, todayStr, deadlineTime]);
-
-  // Pre-fill when editing
-  useEffect(() => {
-    if (habit) {
-      setTitle(habit.title);
-      setCategory(habit.category);
-      setDate(habit.date);
-      setDeadlineTime(habit.deadlineTime || "");
-      setHabitType(habit.habitType || "boolean");
-      setTargetValue(habit.targetValue ? String(habit.targetValue) : "");
-      setUnit(habit.unit || "");
-      setScheduledDays(habit.scheduledDays || []);
-    }
-  }, [habit]);
 
   function toggleDay(dayKey: string) {
     setScheduledDays(prev => 
@@ -315,8 +291,18 @@ export function HabitModal({ habit, isPending, onClose, onCreate, onUpdate }: Pr
                 type="date"
                 value={date}
                 min={yesterdayStr}
-                onChange={(e) => setDate(e.target.value)}
                 className="w-full px-3 py-2 text-sm text-black dark:text-white bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white [color-scheme:light] dark:[color-scheme:dark]"
+                onChange={(e) => {
+                  const nextDate = e.target.value;
+                  setDate(nextDate);
+                  if (nextDate === todayStr && deadlineTime) {
+                    const now = new Date();
+                    const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    if (deadlineTime < currentHHMM) {
+                      setDeadlineTime("");
+                    }
+                  }
+                }}
               />
             </div>
             <div>

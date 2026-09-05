@@ -1,5 +1,3 @@
-import { User, Edit2, Zap, Trophy, Target, TrendingUp } from "lucide-react";
-
 export function StatCard({ 
   title, 
   value, 

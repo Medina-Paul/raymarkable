@@ -175,3 +175,26 @@ export const teamEvents = pgTable(
     index("team_events_created_at_idx").on(t.createdAt),
   ]
 );
+
+/*
+PUSH SUBSCRIPTIONS TABLE
+Stores W3C Web Push endpoints and cryptographic keys per device/browser.
+Allows the server to send background push notifications to users even when offline.
+*/
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("push_subscriptions_user_id_idx").on(t.userId),
+    unique("push_subscriptions_user_endpoint_uniq").on(t.userId, t.endpoint),
+  ]
+);

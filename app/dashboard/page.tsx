@@ -79,7 +79,7 @@ export default function DashboardPage() {
               ) : notifications.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-zinc-500 py-6">
                   <CheckCircle2 className="w-8 h-8 mb-2 opacity-20" />
-                  <p className="text-sm">You're all caught up!</p>
+                  <p className="text-sm">You&apos;re all caught up!</p>
                 </div>
               ) : (
                 notifications.map(n => (
@@ -136,7 +136,7 @@ export default function DashboardPage() {
 
           {/* Daily Progress Ring */}
           <div className="bg-white dark:bg-zinc-900 p-4 sm:p-6 border border-gray-200 dark:border-zinc-800 flex flex-col items-center text-center">
-            <h2 className="font-semibold text-sm tracking-wide uppercase text-gray-400 dark:text-zinc-500 w-full text-left mb-6">Today's Progress</h2>
+            <h2 className="font-semibold text-sm tracking-wide uppercase text-gray-400 dark:text-zinc-500 w-full text-left mb-6">Today&apos;s Progress</h2>
             <div className="relative w-32 h-32">
               <svg className="w-full h-full transform -rotate-90">
                 <circle cx="64" cy="64" r="56" className="stroke-gray-100 dark:stroke-zinc-800" strokeWidth="12" fill="none" />

@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { MonthlySection } from "@/components/profile/monthly-section";
 import { Heatmap } from "@/components/profile/heatmap";
 import { ProfileHeader } from "@/components/profile/profile-header";
+import { calculateStreaks, normalizeDate } from "@/lib/services/streak";
 
 export async function ProfileView({ targetUserId, isOwnProfile }: { targetUserId: string; isOwnProfile: boolean }) {
 
@@ -36,14 +37,11 @@ export async function ProfileView({ targetUserId, isOwnProfile }: { targetUserId
     .innerJoin(categories, eq(habits.categoryId, categories.id))
     .where(eq(habits.userId, targetUserId));
 
-  // Safe Date Formatting for Habits (Postgres driver returns JS Date objects)
-  const safeHabits = allHabits.map(h => {
-    let dStr = "";
-    if (typeof h.date === 'string') dStr = h.date.split('T')[0];
-    else if ((h.date as any) instanceof Date) dStr = (h.date as any).toISOString().split('T')[0];
-    else dStr = String(h.date);
-    return { ...h, date: dStr };
-  });
+  // Safe Date Formatting for Habits
+  const safeHabits = allHabits.map((h) => ({
+    ...h,
+    date: normalizeDate(h.date),
+  }));
 
   // --- ALL-TIME STATS ---
   const totalHabits = safeHabits.length;
@@ -65,62 +63,9 @@ export async function ProfileView({ targetUserId, isOwnProfile }: { targetUserId
   .innerJoin(habits, eq(habitLogs.habitId, habits.id))
   .where(eq(habits.userId, targetUserId));
 
-  // --- STREAK LOGIC ---
-  const logDates = Array.from(new Set(completedLogs.map(l => {
-    if (typeof l.date === 'string') return l.date.split('T')[0];
-    if ((l.date as any) instanceof Date) return (l.date as any).toISOString().split('T')[0];
-    return String(l.date);
-  }))).sort(); // Sort chronologically ascending
-
-  let dynamicStreak = 0;
-  let maxHistoricalStreak = 0;
-  
-  if (logDates.length > 0) {
-    let tempStreak = 0;
-    let prevDate = null;
-    
-    for (let i = 0; i < logDates.length; i++) {
-      const dStr = logDates[i];
-      const [year, month, day] = dStr.split('-').map(Number);
-      const currDate = new Date(year, month - 1, day);
-      
-      if (!prevDate) {
-        tempStreak = 1;
-      } else {
-        const diffTime = currDate.getTime() - prevDate.getTime();
-        const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
-        
-        if (diffDays === 1) {
-          tempStreak++;
-        } else if (diffDays > 1) {
-          tempStreak = 1;
-        }
-      }
-      
-      if (tempStreak > maxHistoricalStreak) {
-        maxHistoricalStreak = tempStreak;
-      }
-      prevDate = currDate;
-    }
-
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-    
-    const lastLogDate = logDates[logDates.length - 1];
-    
-    if (lastLogDate === todayStr || lastLogDate === yesterdayStr) {
-      dynamicStreak = tempStreak;
-    } else {
-      dynamicStreak = 0;
-    }
-  }
-
-  let currentStreak = dynamicStreak;
-  let bestStreak = Math.max(maxHistoricalStreak, profile?.bestStreak || 0, currentStreak);
+  // --- STREAK LOGIC (Single Source of Truth) ---
+  const { currentStreak, bestStreak: calculatedBest } = calculateStreaks(completedLogs.map(l => l.date));
+  const bestStreak = Math.max(calculatedBest, profile?.bestStreak || 0, currentStreak);
 
   // --- WEEKLY CHART DATA ---
   const weeklyData = [];

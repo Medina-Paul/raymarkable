@@ -7,7 +7,7 @@ interface HeatmapProps {
   successThreshold: number;
 }
 
-export function Heatmap({ data, successThreshold }: HeatmapProps) {
+export function Heatmap({ data }: HeatmapProps) {
   // Generate last 12 weeks of data (84 days)
   const days = useMemo(() => {
     const today = new Date();
@@ -63,7 +63,7 @@ export function Heatmap({ data, successThreshold }: HeatmapProps) {
         <div className="flex gap-1.5 min-w-max pb-2">
           {columns.map((week, weekIdx) => (
             <div key={weekIdx} className="flex flex-col gap-1.5">
-              {week.map((day, dayIdx) => (
+              {week.map((day) => (
                 <div
                   key={day.date}
                   className={`w-4 h-4 ${getColor(day.percent, day.hasData)}`}

@@ -3,6 +3,7 @@ import { authPlugin } from '@/lib/api/auth';
 import { db } from '@/lib/db';
 import { users, teams, teamEvents, habitLogs, habits, notifications } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { sendWebPush } from '@/lib/push';
 
 /*
 In-memory rate-limiting ledger for teammate nudges.
@@ -317,10 +318,20 @@ export const teamsRoutes = new Elysia()
     });
     
     // Push targeted notification to the recipient's inbox and device
+    const nudgeMessage = `${currentUser.name || 'A teammate'} nudged you to complete '${taskTitle}'`;
     await db.insert(notifications).values({
       senderId: user.id,
       receiverId: targetId,
-      message: `${currentUser.name || 'A teammate'} nudged you to complete '${taskTitle}'`
+      message: nudgeMessage
+    });
+
+    // Send native background push notification to target user's registered devices
+    sendWebPush(targetId, {
+      title: 'Teammate Nudge',
+      body: nudgeMessage,
+      url: '/dashboard/habits',
+    }).catch((pushErr) => {
+      console.warn('[Teams] Background push delivery error:', pushErr);
     });
     
     return { success: true };

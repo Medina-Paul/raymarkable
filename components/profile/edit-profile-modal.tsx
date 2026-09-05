@@ -2,10 +2,9 @@
 
 import { useState, useCallback } from "react";
 import Cropper from "react-easy-crop";
-import { X, Upload, Loader2, Save } from "lucide-react";
+import { X, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { useUpdateProfile } from "@/lib/hooks/use-habits";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -24,7 +23,6 @@ export function EditProfileModal({ isOpen, onClose, userId, currentName, onSucce
   const [isUploading, setIsUploading] = useState(false);
 
   const supabase = createClient();
-  const updateProfile = useUpdateProfile();
 
   const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
@@ -87,7 +85,7 @@ export function EditProfileModal({ isOpen, onClose, userId, currentName, onSucce
       if (imageSrc && croppedAreaPixels) {
         const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
         const fileName = `${userId}/${Date.now()}.jpg`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from("avatars")
           .upload(fileName, croppedImageBlob, { contentType: "image/jpeg", upsert: true });
 

@@ -18,7 +18,7 @@ Orchestrates the team experience:
 */
 
 export default function TeamsPage() {
-  const { data, isLoading, isError, refetch } = useMyTeam();
+  const { data, isLoading } = useMyTeam();
   const leaveMutation = useLeaveTeam();
   const removeMutation = useRemoveMember();
 

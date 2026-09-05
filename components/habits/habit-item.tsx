@@ -49,15 +49,7 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
 
   const isNumeric = habit.habitType === "numeric";
   const target = habit.targetValue || 1;
-  const [localValue, setLocalValue] = useState(habit.currentValue || 0);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Keep in sync when prop changes externally
-  useEffect(() => {
-    setLocalValue(habit.currentValue || 0);
-  }, [habit.currentValue]);
-
-  const current = localValue;
+  const current = habit.currentValue || 0;
   const percentage = Math.round((current / target) * 100);
   const isOverachieved = current > target;
   const isAccomplished = habit.completed || (isNumeric && current >= target);
@@ -94,20 +86,9 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
     statusColor = "bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400";
   }
 
-  const syncValue = (val: number) => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    debounceTimerRef.current = setTimeout(() => {
-      updateProgress.mutate({ id: habit.id, value: val });
-    }, 350);
-  };
-
   const handleStep = (delta: number) => {
     if (isMissed) return;
-    const nextVal = Math.max(0, localValue + delta);
-    setLocalValue(nextVal);
-    syncValue(nextVal);
+    updateProgress.mutate({ id: habit.id, delta });
   };
 
   return (
@@ -185,7 +166,7 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
             {/* Decrement */}
             <button
               onClick={() => handleStep(-1)}
-              disabled={isMissed || (!isPending && habit.date < todayStr) || localValue <= 0}
+              disabled={isMissed || (!isPending && habit.date < todayStr) || current <= 0}
               aria-label="Decrease by 1"
               className="w-7 h-7 shrink-0 flex items-center justify-center border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-100 dark:hover:bg-zinc-700 disabled:opacity-30 transition-all text-black dark:text-white active:scale-95 cursor-pointer disabled:cursor-default"
             >
@@ -202,7 +183,7 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
               />
               <div className="relative z-10 w-full flex items-center justify-between text-[11px] sm:text-xs font-semibold text-white gap-1">
                 <span className="truncate pr-0.5">
-                  {localValue} / {target} {habit.unit || ''}
+                  {current} / {target} {habit.unit || ''}
                 </span>
                 <span className="text-[10px] text-zinc-300 font-mono shrink-0">
                   {percentage}%

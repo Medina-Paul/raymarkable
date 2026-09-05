@@ -29,48 +29,44 @@ const PwaContext = createContext<PwaContextType>({
 export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [isIos, setIsIos] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as { standalone?: boolean }).standalone === true
+    );
+  });
+  const [isIos] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+  });
 
   useEffect(() => {
     // 1. Service Worker Management:
-    // Only activate caching in production. In local development, unregister service workers
-    // to prevent stale cached HTML from causing hydration mismatches during active development.
+    // Registers /sw.js in all environments so Web Push functions locally and in production.
+    // In local development, sw.js automatically bypasses caching so hot-reloading is unaffected.
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      if (process.env.NODE_ENV === "production") {
-        const registerSW = () => {
-          navigator.serviceWorker
-            .register("/sw.js")
-            .catch((error) => {
-              console.warn("[PWA] Service Worker registration failed:", error);
-            });
-        };
+      const registerSW = () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .catch((error) => {
+            console.warn("[PWA] Service Worker registration failed:", error);
+          });
+      };
 
-        if (document.readyState === "complete") {
-          registerSW();
-        } else {
-          window.addEventListener("load", registerSW);
-        }
+      if (document.readyState === "complete") {
+        registerSW();
       } else {
-        // In development, clear any lingering service workers on localhost
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          for (const registration of registrations) {
-            registration.unregister();
-          }
-        });
+        window.addEventListener("load", registerSW);
       }
     }
 
-    // 2. Detect if the user launched the app from their home screen (standalone mode)
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as any).standalone === true;
-    setIsInstalled(isStandalone);
-
-    // 3. Detect iOS devices (iPhone, iPad, iPod)
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIos(isIosDevice);
+    // 2. Listen for display-mode changes (e.g. installed PWA launch)
+    const mediaQuery = window.matchMedia("(display-mode: standalone)");
+    const handleDisplayModeChange = (e: MediaQueryListEvent) => {
+      setIsInstalled(e.matches);
+    };
+    mediaQuery.addEventListener("change", handleDisplayModeChange);
 
     // 4. On Chrome / Android / Edge, capture the native install event so we can trigger it with our own button
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -91,6 +87,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
+      mediaQuery.removeEventListener("change", handleDisplayModeChange);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };

@@ -12,20 +12,13 @@ Displays all pod members, their current daily streaks, pending habits for today,
 and controls to nudge teammates or remove members (leader only).
 */
 
+import { formatTime } from "@/lib/utils/formatters";
+
 interface TeamRosterProps {
   members: User[];
   leaderId: string;
   currentUserId: string | null;
   onRemoveMember: (member: { id: string; name: string }) => void;
-}
-
-function formatTime(timeStr: string) {
-  if (!timeStr) return "";
-  const [h, m] = timeStr.split(":");
-  const hh = parseInt(h, 10);
-  const ampm = hh >= 12 ? "PM" : "AM";
-  const h12 = hh % 12 || 12;
-  return `${h12}:${m} ${ampm}`;
 }
 
 export function TeamRoster({
@@ -120,22 +113,33 @@ export function TeamRoster({
             )}
           </div>
 
-          {/* Member's Today Pending Habits */}
+          {/* Member's Pending Habits (Today + Urgent Grace Period) */}
           <div className="space-y-2">
             {member.activeHabits && member.activeHabits.length > 0 ? (
               member.activeHabits.map((habit) => (
                 <div
                   key={habit.id}
-                  className="flex items-center justify-between bg-gray-50 dark:bg-zinc-800/60 px-3 py-2 border border-transparent dark:border-zinc-800"
+                  className={`flex items-center justify-between px-3 py-2 border transition-colors ${
+                    habit.isGrace
+                      ? "bg-amber-500/10 border-amber-500/30 dark:bg-amber-500/15 dark:border-amber-500/40"
+                      : "bg-gray-50 dark:bg-zinc-800/60 border-transparent dark:border-zinc-800"
+                  }`}
                 >
-                  <span className="text-sm font-medium text-gray-700 dark:text-zinc-300 truncate pr-2 flex-1 min-w-0">
-                    {habit.title}{" "}
-                    {habit.deadlineTime && (
-                      <span className="text-gray-400 dark:text-zinc-500 font-normal text-xs ml-1">
-                        @{formatTime(habit.deadlineTime)}
+                  <div className="flex items-center gap-2 truncate pr-2 flex-1 min-w-0">
+                    {habit.isGrace && (
+                      <span className="shrink-0 text-[10px] uppercase font-bold tracking-wide text-amber-700 bg-amber-200/80 dark:bg-amber-900/60 dark:text-amber-300 px-1.5 py-0.5 rounded">
+                        Grace Period
                       </span>
                     )}
-                  </span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-zinc-300 truncate">
+                      {habit.title}{" "}
+                      {habit.deadlineTime && (
+                        <span className="text-gray-400 dark:text-zinc-500 font-normal text-xs ml-1">
+                          @{formatTime(habit.deadlineTime)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
                   {currentUserId !== member.id && (
                     <button
                       onClick={() => {
@@ -143,12 +147,17 @@ export function TeamRoster({
                           { targetId: member.id, taskTitle: habit.title },
                           {
                             onSuccess: () => toast.success(`Nudged ${member.name}!`),
+                            onError: (err) => toast.error(err.message || "Failed to nudge teammate"),
                           }
                         );
                       }}
                       disabled={nudgeMutation.isPending}
-                      className="shrink-0 p-1.5 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-950/40 transition-colors cursor-pointer"
-                      title="Nudge"
+                      className={`shrink-0 p-1.5 transition-colors cursor-pointer ${
+                        habit.isGrace
+                          ? "text-amber-600 hover:bg-amber-200/60 dark:text-amber-400 dark:hover:bg-amber-900/40"
+                          : "text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-950/40"
+                      }`}
+                      title={habit.isGrace ? "Urgent Nudge (Grace Period)" : "Nudge"}
                     >
                       <BellRing className="w-4 h-4" />
                     </button>
@@ -157,7 +166,7 @@ export function TeamRoster({
               ))
             ) : (
               <p className="text-sm text-gray-400 dark:text-zinc-500 italic px-2">
-                No pending habits today.
+                No pending habits.
               </p>
             )}
           </div>

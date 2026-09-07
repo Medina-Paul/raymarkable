@@ -1,23 +1,39 @@
-import { Elysia } from 'elysia';
-import { authPlugin } from '@/lib/api/auth';
+import { Elysia, t } from 'elysia';
+import { requireAuth } from '@/lib/api/auth';
 import { db } from '@/lib/db';
 import { habits, categories, habitLogs, users, teamEvents } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { formatLocalDate } from '@/lib/utils/formatters';
+
+function toDateString(d: unknown): string {
+  if (typeof d === 'string') return d.split('T')[0];
+  if (d instanceof Date) return formatLocalDate(d);
+  return String(d || '');
+}
+
+const habitBodySchema = t.Object({
+  title: t.String({ minLength: 1 }),
+  category: t.String({ minLength: 1 }),
+  date: t.String({ minLength: 10 }),
+  deadlineTime: t.Optional(t.Nullable(t.String())),
+  habitType: t.Optional(t.Union([t.Literal('boolean'), t.Literal('numeric')])),
+  targetValue: t.Optional(t.Nullable(t.Number())),
+  unit: t.Optional(t.Nullable(t.String())),
+  scheduledDays: t.Optional(t.Nullable(t.Array(t.String()))),
+});
 
 /*
 HABITS API ROUTES
 Covers the full lifecycle of habits: Listing, Creation, Updates, Increments, Toggles, and Deletions.
 */
 export const habitsRoutes = new Elysia()
-  .use(authPlugin)
+  .use(requireAuth)
 
   /*
   GET /api/v1/habits
   Fetches all habits owned by the authenticated user, joined with their category names.
   */
-  .get('/habits', async ({ user, set }) => {
-    if (!user) { set.status = 401; return 'Unauthorized'; }
-    
+  .get('/habits', async ({ user }) => {
     const result = await db
       .select({
         id: habits.id,
@@ -40,7 +56,7 @@ export const habitsRoutes = new Elysia()
       id: h.id,
       title: h.title,
       category: h.category,
-      date: typeof h.date === 'string' ? h.date.split('T')[0] : ((h.date as any) instanceof Date ? (h.date as any).toISOString().split('T')[0] : String(h.date)),
+      date: toDateString(h.date),
       deadlineTime: h.deadlineTime,
       habitType: (h.habitType || 'boolean') as 'boolean' | 'numeric',
       targetValue: h.targetValue,
@@ -56,40 +72,25 @@ export const habitsRoutes = new Elysia()
   Creates a new habit for today, tomorrow, or yesterday (enforcing a 48h grace window).
   */
   .post('/habits', async ({ user, body, set }) => {
-    if (!user) { set.status = 401; return 'Unauthorized'; }
-    
-    const payload = body as { 
-      title: string; 
-      category: string; 
-      date: string; 
-      deadlineTime?: string | null;
-      habitType?: 'boolean' | 'numeric';
-      targetValue?: number | null;
-      unit?: string | null;
-      scheduledDays?: string[] | null;
-    };
-
-    const { date, habitType = 'boolean', targetValue, scheduledDays } = payload;
-    const deadlineTime = payload.deadlineTime || "23:59";
-    const title = payload.title?.trim()?.substring(0, 60);
-    const category = payload.category?.trim()?.substring(0, 25);
-    const unit = payload.unit?.trim()?.substring(0, 20) || null;
+    const { date, habitType = 'boolean', targetValue, scheduledDays } = body;
+    const deadlineTime = body.deadlineTime || "23:59";
+    const title = body.title.trim().substring(0, 60);
+    const category = body.category.trim().substring(0, 25);
+    const unit = body.unit?.trim().substring(0, 20) || null;
     
     // Anti-cheat / 48-Hour Grace Window:
-    // Users can log today, tomorrow, or yesterday (if they forgot to log before midnight),
-    // but cannot backdate habits into the deep past.
     const yesterdayObj = new Date();
     yesterdayObj.setDate(yesterdayObj.getDate() - 1);
-    const yesterdayStr = `${yesterdayObj.getFullYear()}-${String(yesterdayObj.getMonth() + 1).padStart(2, '0')}-${String(yesterdayObj.getDate()).padStart(2, '0')}`;
+    const yesterdayStr = formatLocalDate(yesterdayObj);
     
     if (date < yesterdayStr) {
       set.status = 400;
-      return 'Cannot create habits older than the 48-hour grace period';
+      return { success: false, error: 'Cannot create habits older than the 48-hour grace period' };
     }
     
     if (!title || !category) {
       set.status = 400;
-      return 'Title and category are required';
+      return { success: false, error: 'Title and category are required' };
     }
     
     // Auto-create category if it doesn't exist, or re-activate if hidden
@@ -126,6 +127,8 @@ export const habitsRoutes = new Elysia()
       scheduledDays: newHabit.scheduledDays ? JSON.parse(newHabit.scheduledDays) : null,
       completed: false,
     };
+  }, {
+    body: habitBodySchema,
   })
   
   /*
@@ -133,8 +136,6 @@ export const habitsRoutes = new Elysia()
   Edits an existing habit's title, scheduled days, deadline, or targets.
   */
   .put('/habits/:id', async ({ user, params, body, set }) => {
-    if (!user) { set.status = 401; return 'Unauthorized'; }
-    
     const { 
       title, 
       category, 
@@ -144,16 +145,17 @@ export const habitsRoutes = new Elysia()
       targetValue,
       unit,
       scheduledDays
-    } = body as { 
-      title: string; 
-      category: string; 
-      date: string; 
-      deadlineTime?: string | null;
-      habitType?: 'boolean' | 'numeric';
-      targetValue?: number | null;
-      unit?: string | null;
-      scheduledDays?: string[] | null;
-    };
+    } = body;
+    
+    // Anti-cheat / 48-Hour Grace Window:
+    const yesterdayObj = new Date();
+    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+    const yesterdayStr = formatLocalDate(yesterdayObj);
+    
+    if (date < yesterdayStr) {
+      set.status = 400;
+      return { success: false, error: 'Cannot set habit dates older than the 48-hour grace period' };
+    }
     
     let categoryRecord = await db.select().from(categories).where(and(eq(categories.name, category), eq(categories.userId, user.id))).limit(1).then(res => res[0]);
     if (!categoryRecord) {
@@ -163,19 +165,19 @@ export const habitsRoutes = new Elysia()
     }
     
     const updated = await db.update(habits).set({
-      title: title?.trim()?.substring(0, 60),
+      title: title.trim().substring(0, 60),
       categoryId: categoryRecord.id,
       date,
-      deadlineTime,
+      deadlineTime: deadlineTime || "23:59",
       habitType,
       targetValue: habitType === 'numeric' ? (Number(targetValue) || 1) : null,
-      unit: habitType === 'numeric' ? (unit?.trim()?.substring(0, 20) || null) : null,
+      unit: habitType === 'numeric' ? (unit?.trim().substring(0, 20) || null) : null,
       scheduledDays: scheduledDays && scheduledDays.length > 0 ? JSON.stringify(scheduledDays) : null,
     }).where(and(eq(habits.id, params.id), eq(habits.userId, user.id))).returning().then(res => res[0]);
     
     if (!updated) {
       set.status = 404;
-      return 'Not found';
+      return { success: false, error: 'Not found' };
     }
     
     return {
@@ -191,6 +193,11 @@ export const habitsRoutes = new Elysia()
       scheduledDays: updated.scheduledDays ? JSON.parse(updated.scheduledDays) : null,
       completed: !updated.isActive,
     };
+  }, {
+    params: t.Object({
+      id: t.String({ minLength: 1 })
+    }),
+    body: habitBodySchema,
   })
 
   /*
@@ -199,12 +206,13 @@ export const habitsRoutes = new Elysia()
   Automatically synchronizes the permanent completion log in habit_logs and broadcasts to team feed.
   */
   .patch('/habits/:id/progress', async ({ user, params, body, set }) => {
-    if (!user) { set.status = 401; return 'Unauthorized'; }
-    
-    const { delta, value } = body as { delta?: number; value?: number };
+    const { delta, value } = body;
     
     const habit = await db.select().from(habits).where(and(eq(habits.id, params.id), eq(habits.userId, user.id))).limit(1).then(res => res[0]);
-    if (!habit) { set.status = 404; return 'Not found'; }
+    if (!habit) {
+      set.status = 404;
+      return { success: false, error: 'Not found' };
+    }
     
     let newVal = habit.currentValue;
     if (typeof delta === 'number') {
@@ -222,16 +230,17 @@ export const habitsRoutes = new Elysia()
       isActive: !isCompleted,
     }).where(eq(habits.id, habit.id)).returning().then(res => res[0]);
     
-    // Sync with habitLogs historical ledger
-    const habitDateStr = typeof habit.date === 'string' ? habit.date.split('T')[0] : ((habit.date as any) instanceof Date ? (habit.date as any).toISOString().split('T')[0] : String(habit.date));
+    // Sync with habitLogs historical ledger for THIS DAY only
+    const habitDateStr = toDateString(habit.date);
     
     if (isCompleted) {
-      const existingLog = await db.select().from(habitLogs).where(eq(habitLogs.habitId, habit.id)).limit(1).then(res => res[0]);
+      const existingLog = await db.select().from(habitLogs)
+        .where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.completedDate, habitDateStr)))
+        .limit(1).then(res => res[0]);
       if (existingLog) {
         await db.update(habitLogs).set({
           loggedValue: newVal,
           status: true,
-          completedDate: habitDateStr,
         }).where(eq(habitLogs.id, existingLog.id));
       } else {
         await db.insert(habitLogs).values({
@@ -255,8 +264,8 @@ export const habitsRoutes = new Elysia()
         }
       }
     } else {
-      // If uncompleted (e.g. subtracted progress below target), remove log
-      await db.delete(habitLogs).where(eq(habitLogs.habitId, habit.id));
+      // If uncompleted (e.g. subtracted progress below target), remove log ONLY FOR THIS DAY
+      await db.delete(habitLogs).where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.completedDate, habitDateStr)));
     }
     
     return {
@@ -267,6 +276,14 @@ export const habitsRoutes = new Elysia()
       unit: updated.unit,
       completed: isCompleted,
     };
+  }, {
+    params: t.Object({
+      id: t.String({ minLength: 1 })
+    }),
+    body: t.Object({
+      delta: t.Optional(t.Number()),
+      value: t.Optional(t.Number()),
+    })
   })
 
   /*
@@ -274,10 +291,11 @@ export const habitsRoutes = new Elysia()
   Toggles completion on/off for boolean habits with 1-click.
   */
   .patch('/habits/:id/toggle', async ({ user, params, set }) => {
-    if (!user) { set.status = 401; return 'Unauthorized'; }
-    
     const habit = await db.select().from(habits).where(and(eq(habits.id, params.id), eq(habits.userId, user.id))).limit(1).then(res => res[0]);
-    if (!habit) { set.status = 404; return 'Not found'; }
+    if (!habit) {
+      set.status = 404;
+      return { success: false, error: 'Not found' };
+    }
     
     const newIsActive = !habit.isActive;
     const isNowCompleted = !newIsActive;
@@ -296,13 +314,14 @@ export const habitsRoutes = new Elysia()
       currentValue: updatedCurrentValue
     }).where(eq(habits.id, habit.id));
     
-    const habitDateStr = typeof habit.date === 'string' ? habit.date.split('T')[0] : ((habit.date as any) instanceof Date ? (habit.date as any).toISOString().split('T')[0] : String(habit.date));
+    const habitDateStr = toDateString(habit.date);
     
     if (isNowCompleted) {
-      const existingLog = await db.select().from(habitLogs).where(eq(habitLogs.habitId, habit.id)).limit(1).then(res => res[0]);
+      const existingLog = await db.select().from(habitLogs)
+        .where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.completedDate, habitDateStr)))
+        .limit(1).then(res => res[0]);
       if (existingLog) {
         await db.update(habitLogs).set({
-          completedDate: habitDateStr,
           loggedValue: updatedCurrentValue || 1,
           status: true,
         }).where(eq(habitLogs.id, existingLog.id));
@@ -325,18 +344,27 @@ export const habitsRoutes = new Elysia()
         });
       }
     } else {
-      await db.delete(habitLogs).where(eq(habitLogs.habitId, habit.id));
+      // ONLY delete the log for this specific date!
+      await db.delete(habitLogs).where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.completedDate, habitDateStr)));
     }
     
     return { success: true };
+  }, {
+    params: t.Object({
+      id: t.String({ minLength: 1 })
+    })
   })
   
   /*
   DELETE /api/v1/habits/:id
   Permanently removes a habit and cascades deletion of its history logs.
   */
-  .delete('/habits/:id', async ({ user, params, set }) => {
-    if (!user) { set.status = 401; return 'Unauthorized'; }
+  .delete('/habits/:id', async ({ user, params }) => {
     await db.delete(habits).where(and(eq(habits.id, params.id), eq(habits.userId, user.id)));
     return { success: true };
+  }, {
+    params: t.Object({
+      id: t.String({ minLength: 1 })
+    })
   });
+

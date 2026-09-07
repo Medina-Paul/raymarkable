@@ -15,7 +15,7 @@ safely purges teams that have remained completely abandoned for 3+ consecutive d
 export async function GET(req: Request) {
   // Security guard: verify CRON_SECRET if configured
   const authHeader = req.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
@@ -35,8 +35,9 @@ export async function GET(req: Request) {
       deletedCount: result.length,
       deletedTeams: result.map(t => t.id)
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error cleaning up abandoned teams:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

@@ -1,7 +1,29 @@
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
+  // CSRF protection: Verify Origin header on mutating API requests
+  if (
+    request.nextUrl.pathname.startsWith('/api/') &&
+    ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)
+  ) {
+    const origin = request.headers.get('origin');
+    const host = request.headers.get('host');
+    
+    // Allow requests with no origin (same-origin non-CORS requests from some browsers)
+    // but reject requests where origin doesn't match host
+    if (origin) {
+      try {
+        const originHost = new URL(origin).host;
+        if (originHost !== host) {
+          return new NextResponse('Forbidden', { status: 403 });
+        }
+      } catch {
+        return new NextResponse('Forbidden', { status: 403 });
+      }
+    }
+  }
+
   return await updateSession(request)
 }
 

@@ -1,9 +1,8 @@
 // Raymarkable Service Worker
-const CACHE_NAME = 'raymarkable-v3';
+const CACHE_NAME = 'raymarkable-v4';
 
 const STATIC_ASSETS = [
   '/',
-  '/dashboard',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/apple-touch-icon.png',
@@ -98,7 +97,7 @@ self.addEventListener('fetch', (event) => {
             if (cachedResponse) {
               return cachedResponse;
             }
-            return caches.match('/dashboard');
+            return caches.match('/');
           });
         })
     );
@@ -123,7 +122,7 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/icons/icon-192x192.png',
     badge: data.badge || '/icons/icon-192x192.png',
     vibrate: [200, 100, 200],
-    tag: data.tag || 'raymarkable-nudge',
+    tag: data.tag || `raymarkable-nudge-${Date.now()}`,
     renotify: true,
     data: {
       url: data.url || '/dashboard/habits',

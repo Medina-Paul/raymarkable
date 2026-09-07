@@ -2,7 +2,7 @@
 
 > **"Build better habits. Produce remarkable results."**
 
-Raymarkable is a full-stack, mobile-first, offline-ready habit tracking Progressive Web Application (PWA). It pairs individual habit formation with tight-knit accountability pods (max 5 members), real-time social feeds, anti-cheat streak dynamics, and rich analytics.
+Raymarkable is a full-stack, mobile-first, installable habit tracking Progressive Web Application (PWA). It pairs individual habit formation with tight-knit accountability pods (max 5 members), real-time social feeds, anti-cheat streak dynamics, and rich analytics.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=flat&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2-blue?style=flat&logo=react)](https://react.dev/)
@@ -38,8 +38,9 @@ For comprehensive engineering details, database ER diagrams, API specifications,
   - 12-week GitHub-style activity heatmap colored by custom goal thresholds (e.g. 75%).
   - 7-day weekly progress spline line chart with circular percentage donut tooltips.
   - Interactive monthly calendar with daily metrics breakdown and category volumes.
-- **PWA & Offline Readiness**:
-  - Service Worker cache (`sw.js`) with Cache-First asset handling and Network-First navigation fallback.
+- **PWA & Web Push Notifications**:
+  - Native Web Push Notifications powered by VAPID and Service Worker push event listener.
+  - Service Worker asset caching (`sw.js`) with Cache-First strategy for ultra-fast static resource loading.
   - Full-screen standalone app installation on iOS, Android, macOS, and Windows.
 - **User Customization**:
   - Dark, Light, and System theme support with zero flash of unstyled content (FOUC).
@@ -57,6 +58,7 @@ For comprehensive engineering details, database ER diagrams, API specifications,
 - **API Engine**: [ElysiaJS](https://elysiajs.com/) mounted via Next.js catch-all route handler (`/api/v1/*`)
 - **Database & ORM**: PostgreSQL via [Drizzle ORM](https://orm.drizzle.team/) and `postgres.js`
 - **Auth & Realtime**: [Supabase](https://supabase.com/) (Google OAuth, PostgreSQL, Realtime WebSockets, Storage)
+- **Push Engine**: Web Push (VAPID RFC 8292) & Service Worker Push API
 - **Audio**: Native Web Audio API two-tone synthesizer ($659.25\text{ Hz}$ / $880.00\text{ Hz}$)
 - **Automation**: Vercel Cron for automated 3-day abandoned team cleanup
 
@@ -84,7 +86,12 @@ DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supab
 NEXT_PUBLIC_SUPABASE_URL="https://[REF].supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="[ANON_KEY]"
 
-# Optional: Protected secret for Cron Endpoint
+# Native Web Push Notifications (VAPID Keys)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY="[YOUR_VAPID_PUBLIC_KEY]"
+VAPID_PRIVATE_KEY="[YOUR_VAPID_PRIVATE_KEY]"
+VAPID_SUBJECT="mailto:paulmedina645@gmail.com"
+
+# Secret Token for Automated Maintenance Cron (/api/cron/cleanup-teams)
 CRON_SECRET="your-secure-cron-token"
 ```
 

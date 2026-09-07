@@ -7,7 +7,7 @@ interface HeatmapProps {
   successThreshold: number;
 }
 
-export function Heatmap({ data }: HeatmapProps) {
+export function Heatmap({ data, successThreshold = 75 }: HeatmapProps) {
   // Generate last 12 weeks of data (84 days)
   const days = useMemo(() => {
     const today = new Date();
@@ -50,9 +50,9 @@ export function Heatmap({ data }: HeatmapProps) {
 
   const getColor = (percent: number, hasData: boolean) => {
     if (!hasData || percent === 0) return "bg-gray-100 dark:bg-zinc-800";
-    if (percent === 100) return "bg-green-800 dark:bg-green-600";
-    if (percent >= 66) return "bg-green-600 dark:bg-green-500";
-    if (percent >= 33) return "bg-green-400 dark:bg-green-400";
+    if (percent >= successThreshold) return "bg-green-700 dark:bg-green-600";
+    if (percent >= Math.round(successThreshold * 0.66)) return "bg-green-500 dark:bg-green-500";
+    if (percent >= Math.round(successThreshold * 0.33)) return "bg-green-400 dark:bg-green-400";
     return "bg-green-200 dark:bg-green-300";
   };
 

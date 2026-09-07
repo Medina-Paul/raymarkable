@@ -1,6 +1,7 @@
 import { useProfile } from "@/lib/hooks/use-habits";
 import { Flame, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export function ProfileCard() {
   const { data: profile, isLoading } = useProfile();
@@ -25,7 +26,13 @@ export function ProfileCard() {
       <div className="absolute -top-10 left-1/2 -translate-x-1/2">
         <div className="w-20 h-20 rounded-full border-4 border-white dark:border-zinc-900 overflow-hidden bg-gray-100 dark:bg-zinc-800">
           {profile.avatarUrl ? (
-            <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+            <Image
+              src={profile.avatarUrl}
+              alt={profile.name}
+              width={80}
+              height={80}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-700 text-black dark:text-white font-bold text-2xl">
               {profile.name?.charAt(0) || "U"}

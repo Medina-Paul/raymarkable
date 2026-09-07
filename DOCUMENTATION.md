@@ -1,7 +1,7 @@
 # Raymarkable — Engineering & Architecture Documentation
 
 > **"Build better habits. Produce remarkable results."**  
-> Raymarkable is a full-stack, mobile-responsive, habit tracking Progressive Web Application (PWA) built on modern web standards.It pairs individual habit mastery with accountability pods, real-time social feeds, dynamic streak calculation, and granular visual progress metrics.
+> Raymarkable is a full-stack, mobile-responsive, habit tracking Progressive Web Application (PWA) built on modern web standards. It pairs individual habit mastery with accountability pods, real-time social feeds, dynamic streak calculation, and granular visual progress metrics.
 
 ---
 
@@ -17,7 +17,7 @@
    - [Accountability Pods & Teammate Nudges](#accountability-pods--teammate-nudges)
    - [Analytics & Visualizations](#analytics--visualizations)
    - [Audio Engine (Synthesized Chime)](#audio-engine-synthesized-chime)
-   - [PWA & Offline Support](#pwa--offline-support)
+   - [PWA & Web Push Notifications](#pwa--web-push-notifications)
 5. [API Reference (Elysia REST Endpoints)](#api-reference-elysia-rest-endpoints)
 6. [Frontend State & Query Management](#frontend-state--query-management)
 7. [Authentication & Security Flow](#authentication--security-flow)
@@ -91,6 +91,7 @@ flowchart TB
 | **Client State** | [TanStack React Query](https://tanstack.com/query) | `^5.102.3` | In-memory caching, optimistic updates, query invalidation |
 | **Visualizations** | [Recharts](https://recharts.org/) | `^3.10.1` | Interactive weekly line charts and radial completion metrics |
 | **Icons & Media** | [Lucide React](https://lucide.react) & `react-easy-crop` | `^1.34.0` | UI icon set and profile photo crop engine |
+| **Push Engine** | [web-push](https://github.com/web-push-libs/web-push) | `^3.6.7` | VAPID (RFC 8292) native device push delivery |
 | **Toasts** | [Sonner](https://sonner.emilkowal.ski/) | `^2.0.8` | Non-blocking in-app notifications and action prompts |
 | **Theming** | [next-themes](https://github.com/pacocoursey/next-themes) | `^0.4.6` | Flawless Dark / Light / System theme switching |
 
@@ -109,7 +110,7 @@ users (id matches Supabase Auth UUID)
 ├── current_streak: integer (default 0)
 ├── best_streak: integer (default 0)
 ├── success_threshold: integer (default 75)
-├── team_id: uuid (FK -> teams.id, nullable)
+├── team_id: uuid (FK -> teams.id, ON DELETE SET NULL, nullable)
 └── created_at: timestamp
 
 categories
@@ -122,7 +123,7 @@ categories
 habits
 ├── id: uuid (PK)
 ├── user_id: uuid (FK -> users.id, ON DELETE CASCADE)
-├── category_id: uuid (FK -> categories.id)
+├── category_id: uuid (FK -> categories.id, ON DELETE SET NULL, nullable)
 ├── title: varchar(60)
 ├── date: date (target date YYYY-MM-DD)
 ├── deadline_time: text (e.g. "22:00", nullable)
@@ -139,12 +140,13 @@ habit_logs (Historical Ledger)
 ├── habit_id: uuid (FK -> habits.id, ON DELETE CASCADE)
 ├── completed_date: date
 ├── logged_value: integer (nullable)
-└── status: boolean (default true)
+├── status: boolean (default true)
+└── UNIQUE(habit_id, completed_date)
 
 teams (Max 5 Pods)
 ├── id: uuid (PK)
 ├── name: varchar(25)
-├── created_by: uuid (FK -> users.id)
+├── created_by: uuid (FK -> users.id, ON DELETE CASCADE)
 ├── abandoned_at: timestamp (set when 0 members remain)
 └── created_at: timestamp
 
@@ -164,7 +166,26 @@ team_events (Live Social Feed)
 ├── target_id: uuid (FK -> users.id, ON DELETE CASCADE, nullable)
 ├── message: text
 └── created_at: timestamp
+
+push_subscriptions (W3C Web Push Endpoints)
+├── id: uuid (PK)
+├── user_id: uuid (FK -> users.id, ON DELETE CASCADE)
+├── endpoint: text
+├── p256dh: text (client public key)
+├── auth: text (client auth secret)
+├── created_at: timestamp
+└── UNIQUE(user_id, endpoint)
 ```
+
+### Database Performance Indexes
+To ensure sub-millisecond query execution under concurrent loads, Drizzle defines the following composite and single-column indexes:
+- **`habits`**: `habits_user_date_idx (userId, date)`, `habits_user_active_idx (userId, isActive)`, `habits_user_id_idx (userId)`
+- **`habit_logs`**: `habit_logs_habit_date_idx (habitId, completedDate)`
+- **`teams`**: `teams_created_by_idx (createdBy)`
+- **`notifications`**: `notifications_receiver_read_idx (receiverId, isRead)`, `notifications_receiver_idx (receiverId)`
+- **`team_events`**: `team_events_team_created_idx (teamId, createdAt)`, `team_events_team_id_idx (teamId)`, `team_events_created_at_idx (createdAt)`
+- **`push_subscriptions`**: `push_subscriptions_user_id_idx (userId)`
+
 
 ---
 
@@ -219,15 +240,19 @@ Teammate nudges trigger an acoustic cue without requiring external MP3/WAV asset
 - Note 2: A5 ($880.00\text{ Hz}$) triggered at $+100\text{ms}$ with exponential decay over $0.55\text{s}$.
 - Can be muted or unmuted in **Settings** (persisted in `localStorage`).
 
-### PWA & Offline Support
+### PWA & Web Push Notifications
 
+- **Online-First Architecture**: Because habit logs, streaks, and accountability feeds depend on real-time database validation and strict anti-cheat verification, Raymarkable is designed strictly as an **online-first** system. It does not provide offline habit syncing.
 - **Web App Manifest**: Configured in `app/manifest.ts` with standalone display mode, maskable high-res icons, and deep-link app shortcuts (`Habits`, `Teams`, `Progress`).
 - **Service Worker (`public/sw.js`)**:
-  - Pre-caches core app shell, fonts, and icons on installation.
+  - Pre-caches core app shell, fonts, and icons on installation for instant asset loading.
   - **Cache-First** strategy for static Next.js assets (`/_next/static`, images, icons).
-  - **Network-First** with offline cache fallback for page navigation (`/dashboard`).
-  - Always passes `/api/*`, `/auth/*`, and Supabase endpoints straight to the network.
-  - Development guard automatically unregisters workers on `localhost` to avoid hydration collisions.
+  - **Network-Only** for all dynamic page navigation (`/dashboard/*`), API endpoints (`/api/*`), and authentication routes (`/auth/*`), ensuring real-time data accuracy.
+  - Development guard automatically bypasses caching on `localhost` to avoid hydration collisions.
+- **Native Web Push Notifications**:
+  - Implements standard W3C Web Push using VAPID (RFC 8292).
+  - Devices register endpoints via the `useDeviceNotifications` client hook.
+  - Server automatically dispatches pushes and prunes invalid/expired subscriptions (`HTTP 404 / 410`).
 
 ---
 
@@ -260,12 +285,17 @@ All endpoints are mounted under prefix `/api/v1` via Next.js catch-all route han
 - `POST /api/v1/teams/remove-member`: Leader-only kick action.
 - `POST /api/v1/teams/nudge`: Sends accountability nudge (rate-limited to 5/min, broadcasts to `team_events` and `notifications`).
 
+### Push Notification Endpoints
+- `POST /api/v1/push/subscribe`: Registers or updates a browser's Web Push subscription with public key and auth secret.
+- `POST /api/v1/push/unsubscribe`: Removes a push subscription by its endpoint.
+- `POST /api/v1/push/test`: Sends a test push notification to all active devices registered to the calling user.
+
 ### Notification Endpoints
 - `GET /api/v1/notifications`: Lists unread notifications for current user.
 - `POST /api/v1/notifications/:id/read`: Marks a notification as dismissed/read.
 
 ### Maintenance & Cron
-- `GET /api/cron/cleanup-teams`: Protected by `Authorization: Bearer <CRON_SECRET>`. Permanently purges teams abandoned for $\ge 3$ days.
+- `GET /api/cron/cleanup-teams`: Strictly protected by `Authorization: Bearer <CRON_SECRET>`. Permanently purges teams abandoned for $\ge 3$ days. (Fails immediately with 401 if secret is unset or mismatched).
 
 ---
 
@@ -273,6 +303,7 @@ All endpoints are mounted under prefix `/api/v1` via Next.js catch-all route han
 
 TanStack Query (`@tanstack/react-query`) handles asynchronous server state with the following configuration:
 - **Global Stale Time**: $60\text{ seconds}$ (`refetchOnWindowFocus: false`) to avoid redundant API polling.
+- **Centralized Query Keys**: Managed via `lib/api/query-keys.ts` (`HABITS_QUERY_KEY`, `USER_QUERY_KEY`, `TEAM_QUERY_KEY`, `NOTIFICATIONS_QUERY_KEY`).
 - **Optimistic Mutations**: Stepping numeric habits immediately updates query cache key `["habits"]`. If network request errors, cache rolls back to previous snapshot.
 - **Real-Time Invalidation**: Supabase Realtime listens to `postgres_changes` on `notifications` and `team_events`, automatically triggering `qc.invalidateQueries({ queryKey: ["team", "me"] })` and `qc.invalidateQueries({ queryKey: ["notifications"] })`.
 
@@ -281,12 +312,20 @@ TanStack Query (`@tanstack/react-query`) handles asynchronous server state with 
 ## Authentication & Security Flow
 
 1. **OAuth Initiation**: Client calls `supabase.auth.signInWithOAuth({ provider: 'google' })`.
-2. **Exchange Callback**: Redirects to `/auth/callback?code=...`. Server exchanges code for session cookies and executes an idempotent upsert into the public `users` table.
-3. **Session Middleware (`middleware.ts`)**: Runs on edge before route execution.
-   - Redirects unauthenticated users trying to access `/dashboard/*` to `/`.
-   - Redirects authenticated users visiting `/` straight to `/dashboard`.
+2. **Exchange Callback (`app/auth/callback/route.ts`)**: 
+   - Server exchanges code for session cookies.
+   - **Open Redirect Guard**: Validates `next` parameter (`startsWith('/') && !startsWith('//')`).
+   - **Sanitization**: Caps `user_metadata.full_name` to 25 characters to prevent database overflow.
+   - Executes an idempotent upsert into the public `users` table.
+3. **Session Middleware (`middleware.ts`)**: 
+   - **CSRF Origin Check**: Validates `Origin` matches `Host` on mutating API requests (`POST`, `PUT`, `PATCH`, `DELETE`).
+   - **Route Protection**: Redirects unauthenticated users trying to access `/dashboard/*` to `/`, and authenticated users visiting `/` to `/dashboard`.
    - Refreshes auth cookies on every request.
-4. **Scoped Elysia Auth Plugin (`lib/api/auth.ts`)**: Derives `{ user }` in Elysia endpoints via `createClient()` from `@/lib/supabase/server`.
+4. **HTTP Security Headers (`next.config.ts`)**:
+   - `X-Content-Type-Options: nosniff`
+   - `X-Frame-Options: DENY`
+   - `Referrer-Policy: strict-origin-when-cross-origin`
+5. **Scoped Elysia Auth Plugin (`lib/api/auth.ts`)**: Derives `{ user }` in Elysia endpoints via `createClient()` from `@/lib/supabase/server`.
 
 ---
 
@@ -342,20 +381,33 @@ raymarkable/
 │   ├── api/
 │   │   ├── auth.ts                   # Scoped Elysia plugin for Supabase Auth
 │   │   ├── habits.ts                 # Frontend HTTP client for habit & profile endpoints
-│   │   └── routes/                   # Elysia sub-routers (user, habits, teams, etc.)
+│   │   ├── push.ts                   # Frontend HTTP client for Web Push endpoints
+│   │   ├── query-keys.ts             # Centralized TanStack Query key factories
+│   │   ├── teams.ts                  # Frontend HTTP client for pod & nudge endpoints
+│   │   └── routes/                   # Elysia sub-routers (user, habits, teams, push, etc.)
 │   ├── db/
 │   │   ├── index.ts                  # Drizzle ORM instance with postgres.js
-│   │   └── schema.ts                 # Relational PostgreSQL table schemas
+│   │   └── schema.ts                 # Relational PostgreSQL table schemas & indexes
 │   ├── hooks/
+│   │   ├── use-click-outside.ts      # Click outside dismiss hook for modals & popovers
+│   │   ├── use-device-notifications.ts # W3C Web Push registration & device sync hook
 │   │   ├── use-grouped-habits.ts     # Date grouping, grace logic, and tab filtering
 │   │   ├── use-habits.ts             # React Query hooks for habits & profile
 │   │   └── use-teams.ts              # React Query hooks for pods & notifications
+│   ├── services/
+│   │   └── streak.ts                 # Dynamic streak calculation engine
 │   ├── supabase/
 │   │   ├── client.ts                 # Browser client (createBrowserClient)
 │   │   ├── middleware.ts             # Edge session refresh & route guard logic
 │   │   └── server.ts                 # Server client with async cookies()
-│   └── types/
-│       └── habit.ts                  # Shared TypeScript interfaces
+│   ├── types/
+│   │   ├── habit.ts                  # Habit domain interfaces
+│   │   ├── notification.ts           # In-app notification interfaces
+│   │   └── team.ts                   # Pod & member roster interfaces
+│   ├── utils/
+│   │   └── formatters.ts             # Time & date normalization utilities
+│   ├── constants.ts                  # System constants (grace period, pod limits, storage keys)
+│   └── push.ts                       # Server-side Web Push dispatcher (web-push)
 ├── public/
 │   ├── icons/                        # PWA icons (180x180, 192x192, 512x512, maskable)
 │   ├── icon.svg                      # Scalable vector logo
@@ -377,7 +429,6 @@ raymarkable/
 Create a `.env` file in the root directory:
 
 ```env
-# Supabase Transaction Pooler URL
 # Supabase Connection Pooler (Transaction Mode, port 6543 for serverless/Vercel)
 DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
 
@@ -385,7 +436,12 @@ DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supab
 NEXT_PUBLIC_SUPABASE_URL="https://[REF].supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="[ANON_KEY]"
 
-# Optional: Protected secret for Cron Endpoint
+# Native Web Push Notifications (VAPID Keys)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY="[YOUR_VAPID_PUBLIC_KEY]"
+VAPID_PRIVATE_KEY="[YOUR_VAPID_PRIVATE_KEY]"
+VAPID_SUBJECT="mailto:paulmedina645@gmail.com"
+
+# Strictly Required: Secret Token for Maintenance Cron (/api/cron/cleanup-teams)
 CRON_SECRET="your-secure-cron-token"
 ```
 

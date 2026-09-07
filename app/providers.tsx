@@ -14,7 +14,7 @@ We filter this known false-positive in development to keep the console clean.
 */
 if (process.env.NODE_ENV === 'development') {
   const originalError = console.error;
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     if (typeof args[0] === 'string' && args[0].includes('Encountered a script tag')) {
       return;
     }
@@ -34,6 +34,18 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             // initial data, and rely on React Query for client-side interactions.
             staleTime: 60 * 1000, // Data remains fresh for 1 minute
             refetchOnWindowFocus: false, // Prevents spamming your Elysia API
+            retry: (failureCount, error) => {
+              // Never retry authentication/authorization errors
+              if (
+                error instanceof Error &&
+                (error.message.includes("401") ||
+                  error.message.includes("Unauthorized") ||
+                  error.message.includes("403"))
+              ) {
+                return false;
+              }
+              return failureCount < 2;
+            },
           },
         },
       })

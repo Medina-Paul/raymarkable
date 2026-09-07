@@ -9,6 +9,7 @@ import {
   date,
   unique,
   index,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 /*
@@ -26,7 +27,7 @@ export const users = pgTable(
     currentStreak: integer("current_streak").default(0).notNull(),
     bestStreak: integer("best_streak").default(0).notNull(),
     successThreshold: integer("success_threshold").default(75).notNull(), // % needed for a "Green" day
-    teamId: uuid("team_id"), // Nullable: only filled when a user is in an active team
+    teamId: uuid("team_id").references((): AnyPgColumn => teams.id, { onDelete: "set null" }), // Nullable: only filled when a user is in an active team
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("users_team_id_idx").on(t.teamId)]
@@ -66,8 +67,7 @@ export const habits = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 60 }).notNull(),
     categoryId: uuid("category_id")
-      .notNull()
-      .references(() => categories.id),
+      .references(() => categories.id, { onDelete: "set null" }),
     date: date("date").defaultNow().notNull(), // Assigned target date (YYYY-MM-DD)
     deadlineTime: text("deadline_time"), // e.g. "22:00"
     habitType: varchar("habit_type", { length: 15 }).default("boolean").notNull(), // 'boolean' | 'numeric'
@@ -82,6 +82,8 @@ export const habits = pgTable(
     index("habits_user_id_idx").on(t.userId),
     index("habits_category_id_idx").on(t.categoryId),
     index("habits_date_idx").on(t.date),
+    index("habits_user_date_idx").on(t.userId, t.date),
+    index("habits_user_active_idx").on(t.userId, t.isActive),
   ]
 );
 
@@ -102,8 +104,8 @@ export const habitLogs = pgTable(
     status: boolean("status").default(true).notNull(),
   },
   (t) => [
-    index("habit_logs_habit_id_idx").on(t.habitId),
-    index("habit_logs_completed_date_idx").on(t.completedDate),
+    index("habit_logs_habit_date_idx").on(t.habitId, t.completedDate),
+    unique("habit_logs_habit_date_uq").on(t.habitId, t.completedDate)
   ]
 );
 
@@ -118,7 +120,7 @@ export const teams = pgTable(
     name: varchar("name", { length: 25 }).notNull(),
     createdBy: uuid("created_by")
       .notNull()
-      .references(() => users.id),
+      .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
     abandonedAt: timestamp("abandoned_at"), // Timestamped when empty; cleaned up after 3 days by cron
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -146,6 +148,7 @@ export const notifications = pgTable(
   (t) => [
     index("notifications_receiver_id_idx").on(t.receiverId),
     index("notifications_is_read_idx").on(t.isRead),
+    index("notifications_receiver_read_idx").on(t.receiverId, t.isRead),
   ]
 );
 
@@ -173,6 +176,7 @@ export const teamEvents = pgTable(
   (t) => [
     index("team_events_team_id_idx").on(t.teamId),
     index("team_events_created_at_idx").on(t.createdAt),
+    index("team_events_team_created_idx").on(t.teamId, t.createdAt),
   ]
 );
 

@@ -102,7 +102,7 @@ export async function ProfileView({ targetUserId, isOwnProfile }: { targetUserId
       />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-6 mb-8">
         <StatCard title="Current Streak" value={currentStreak} subtitle="Days in a row"  />
         <StatCard title="Best Streak" value={bestStreak} subtitle="Personal record" />
         <StatCard title="Total Completed" value={totalCompleted} subtitle="Habits accomplished" />

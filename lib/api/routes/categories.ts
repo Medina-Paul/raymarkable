@@ -1,5 +1,5 @@
-import { Elysia } from 'elysia';
-import { authPlugin } from '@/lib/api/auth';
+import { Elysia, t } from 'elysia';
+import { requireAuth } from '@/lib/api/auth';
 import { db } from '@/lib/db';
 import { categories } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -9,14 +9,13 @@ CATEGORIES API ROUTES
 Manages habit categories with preset visibility management.
 */
 export const categoriesRoutes = new Elysia()
-  .use(authPlugin)
+  .use(requireAuth)
 
   /*
   GET /api/v1/categories
   Fetches all active category presets belonging to the current user.
   */
-  .get('/categories', async ({ user, set }) => {
-    if (!user) { set.status = 401; return 'Unauthorized'; }
+  .get('/categories', async ({ user }) => {
     const result = await db
       .select({ id: categories.id, name: categories.name })
       .from(categories)
@@ -29,9 +28,7 @@ export const categoriesRoutes = new Elysia()
   Removes a category from the active preset suggestions in the modal.
   Does NOT delete or modify past habits, archives, or streaks.
   */
-  .delete('/categories/:id', async ({ user, params, set }) => {
-    if (!user) { set.status = 401; return 'Unauthorized'; }
-    
+  .delete('/categories/:id', async ({ user, params }) => {
     // Soft hide: Set isActive to false so it disappears from the suggestion dropdown
     // while keeping all past habits and archive records intact.
     await db
@@ -40,4 +37,9 @@ export const categoriesRoutes = new Elysia()
       .where(and(eq(categories.id, params.id), eq(categories.userId, user.id)));
       
     return { success: true };
+  }, {
+    params: t.Object({
+      id: t.String({ minLength: 1 })
+    })
   });
+

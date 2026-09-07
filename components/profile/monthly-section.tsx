@@ -33,6 +33,7 @@ export function MonthlySection({
   calendarData,
   initialMonth,
   initialYear,
+  successThreshold = 75,
 }: MonthlySectionProps) {
   const [displayMonth, setDisplayMonth] = useState(initialMonth);
   const [displayYear, setDisplayYear] = useState(initialYear);
@@ -208,11 +209,11 @@ export function MonthlySection({
               style = "text-gray-300 dark:text-zinc-600 hover:bg-gray-50 dark:hover:bg-zinc-800 border border-transparent border-dashed hover:border-gray-200 dark:hover:border-zinc-700";
             } else if (dayData && dayData.total > 0) {
               const pct = completionRatio * 100;
-              if (pct === 100) {
+              if (pct >= successThreshold) {
                 bgStyle = "bg-green-800 dark:bg-green-600 text-white font-bold";
-              } else if (pct >= 66) {
+              } else if (pct >= Math.round(successThreshold * 0.66)) {
                 bgStyle = "bg-green-600 dark:bg-green-500 text-white font-bold";
-              } else if (pct >= 33) {
+              } else if (pct >= Math.round(successThreshold * 0.33)) {
                 bgStyle = "bg-green-400 dark:bg-green-400 text-white font-bold";
               } else if (pct > 0) {
                 bgStyle = "bg-green-200 dark:bg-green-300 text-green-900 font-bold";

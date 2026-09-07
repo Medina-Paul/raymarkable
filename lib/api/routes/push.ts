@@ -1,5 +1,5 @@
-import { Elysia } from 'elysia';
-import { authPlugin } from '@/lib/api/auth';
+import { Elysia, t } from 'elysia';
+import { requireAuth } from '@/lib/api/auth';
 import { db } from '@/lib/db';
 import { pushSubscriptions } from '@/lib/db/schema';
 import { sendWebPush } from '@/lib/push';
@@ -11,7 +11,7 @@ Handles registering and unregistering Web Push subscriptions for user devices,
 and triggering test push notifications.
 */
 export const pushRoutes = new Elysia({ prefix: '/push' })
-  .use(authPlugin)
+  .use(requireAuth)
 
   /*
   POST /api/v1/push/subscribe
@@ -19,21 +19,8 @@ export const pushRoutes = new Elysia({ prefix: '/push' })
   */
   .post(
     '/subscribe',
-    async ({ user, body, set }) => {
-      if (!user) {
-        set.status = 401;
-        return 'Unauthorized';
-      }
-
-      const { endpoint, keys } = body as {
-        endpoint: string;
-        keys: { p256dh: string; auth: string };
-      };
-
-      if (!endpoint || !keys?.p256dh || !keys?.auth) {
-        set.status = 400;
-        return 'Invalid subscription payload';
-      }
+    async ({ user, body }) => {
+      const { endpoint, keys } = body;
 
       await db
         .insert(pushSubscriptions)
@@ -52,6 +39,15 @@ export const pushRoutes = new Elysia({ prefix: '/push' })
         });
 
       return { success: true };
+    },
+    {
+      body: t.Object({
+        endpoint: t.String({ minLength: 1 }),
+        keys: t.Object({
+          p256dh: t.String({ minLength: 1 }),
+          auth: t.String({ minLength: 1 }),
+        }),
+      }),
     }
   )
 
@@ -61,17 +57,8 @@ export const pushRoutes = new Elysia({ prefix: '/push' })
   */
   .post(
     '/unsubscribe',
-    async ({ user, body, set }) => {
-      if (!user) {
-        set.status = 401;
-        return 'Unauthorized';
-      }
-
-      const { endpoint } = (body || {}) as { endpoint?: string };
-      if (!endpoint) {
-        set.status = 400;
-        return 'Endpoint is required';
-      }
+    async ({ user, body }) => {
+      const { endpoint } = body;
 
       await db
         .delete(pushSubscriptions)
@@ -83,6 +70,11 @@ export const pushRoutes = new Elysia({ prefix: '/push' })
         );
 
       return { success: true };
+    },
+    {
+      body: t.Object({
+        endpoint: t.String({ minLength: 1 }),
+      }),
     }
   )
 
@@ -90,12 +82,7 @@ export const pushRoutes = new Elysia({ prefix: '/push' })
   POST /api/v1/push/test
   Sends an immediate test push notification through web-push to the logged-in user.
   */
-  .post('/test', async ({ user, set }) => {
-    if (!user) {
-      set.status = 401;
-      return 'Unauthorized';
-    }
-
+  .post('/test', async ({ user }) => {
     const result = await sendWebPush(user.id, {
       title: 'Raymarkable Nudge Test',
       body: 'Web Push is active! You will now receive teammate alerts on this device.',
@@ -104,3 +91,4 @@ export const pushRoutes = new Elysia({ prefix: '/push' })
 
     return result;
   });
+

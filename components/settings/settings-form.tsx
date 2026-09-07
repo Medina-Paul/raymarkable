@@ -36,7 +36,7 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
   const { isInstallable, isInstalled, isIos, promptInstall } = usePwa();
   const updateProfile = useUpdateProfile();
   const deleteAccountMutation = useDeleteAccount();
-  const { soundEnabled, toggleSound, permission, isSubscribing, requestPermission, sendTestAlert } = useDeviceNotifications();
+  const { soundEnabled, toggleSound, permission, isSubscribed, isLoading, enableAlerts, disableAlerts, sendTestAlert } = useDeviceNotifications();
 
   const [threshold, setThreshold] = useState(initialThreshold);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -64,8 +64,9 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
       toast.success("Your account and all associated data have been deleted.");
       router.push("/");
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete account");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete account";
+      toast.error(message);
     }
   };
 
@@ -204,43 +205,50 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5">
                 <BellRing className="w-3.5 h-3.5 text-blue-500" />
-                Phone / Device Alerts
+                Device Alerts
               </p>
               <p className="text-[11px] text-gray-500 dark:text-zinc-400">
-                {permission === "granted"
-                  ? "Native lock screen alerts active on this device"
-                  : permission === "denied"
+                {permission === "denied"
                   ? "Notifications blocked in your browser or phone settings"
+                  : isSubscribed
+                  ? "Native lock screen alerts active on this device"
                   : "Allow system banners when teammates nudge you"}
               </p>
             </div>
 
-            {permission === "granted" ? (
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-2 py-1">
-                  Active
-                </span>
-                <button
-                  type="button"
-                  onClick={sendTestAlert}
-                  className="px-2.5 py-1 text-xs font-semibold text-gray-700 dark:text-zinc-300 border border-gray-200 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                  title="Send test notification to verify"
-                >
-                  Test
-                </button>
-              </div>
+            {!mounted ? (
+              <div className="h-7 w-16 bg-gray-100 dark:bg-zinc-800 animate-pulse border border-gray-200 dark:border-zinc-700 shrink-0" />
             ) : permission === "denied" ? (
               <span className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 px-2 py-1 shrink-0">
                 Blocked
               </span>
+            ) : isSubscribed ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={sendTestAlert}
+                  className="px-2.5 py-1.5 text-xs font-semibold text-gray-700 dark:text-zinc-300 border border-gray-200 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  title="Send test notification to verify"
+                >
+                  Test
+                </button>
+                <button
+                  type="button"
+                  onClick={disableAlerts}
+                  disabled={isLoading}
+                  className="px-3 py-1.5 text-xs font-bold bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-300 border border-gray-200 dark:border-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  {isLoading ? "Disabling..." : "Disable"}
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
-                onClick={requestPermission}
-                disabled={isSubscribing}
+                onClick={enableAlerts}
+                disabled={isLoading}
                 className="px-3 py-1.5 text-xs font-bold bg-black text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
               >
-                {isSubscribing ? "Enabling..." : "Enable"}
+                {isLoading ? "Enabling..." : "Enable"}
               </button>
             )}
           </div>
@@ -267,7 +275,7 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white">Raymarkable</h3>
-              <p className="text-xs text-gray-500 dark:text-zinc-400">Install for fullscreen, offline-ready habit tracking</p>
+              <p className="text-xs text-gray-500 dark:text-zinc-400">Install for fullscreen standalone habit tracking</p>
             </div>
           </div>
 

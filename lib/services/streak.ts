@@ -15,7 +15,12 @@ export interface StreakResult {
  */
 export function normalizeDate(date: string | Date | unknown): string {
   if (typeof date === "string") return date.split("T")[0];
-  if (date instanceof Date) return date.toISOString().split("T")[0];
+  if (date instanceof Date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
   return String(date || "");
 }
 

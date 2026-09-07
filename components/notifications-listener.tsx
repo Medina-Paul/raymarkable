@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { useNotifications, useReadNotification } from "@/lib/hooks/use-teams";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { STORAGE_KEYS } from "@/lib/constants";
+
+interface CustomAudioWindow {
+  AudioContext?: typeof AudioContext;
+  webkitAudioContext?: typeof AudioContext;
+}
 
 /*
 Clean Web Audio API notification chime.
@@ -12,7 +18,8 @@ Plays a subtle, pleasant two-tone synth chime without needing external audio fil
 */
 export function playChime() {
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const win = typeof window !== "undefined" ? (window as unknown as CustomAudioWindow) : null;
+    const AudioContextClass = win?.AudioContext || win?.webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
     const now = ctx.currentTime;
@@ -46,11 +53,12 @@ export function playChime() {
 }
 
 export function NotificationsListener() {
-  const { data: notifications = [] } = useNotifications();
+  const { data: notifications } = useNotifications();
   const readMutation = useReadNotification();
+  const markAsRead = readMutation.mutate;
   const processedIds = useRef(new Set<string>());
   const queryClient = useQueryClient();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Listen to Supabase Realtime for instant background updates
   useEffect(() => {
@@ -81,11 +89,13 @@ export function NotificationsListener() {
 
   // Process incoming unread notifications
   useEffect(() => {
+    if (!notifications || notifications.length === 0) return;
+
     notifications.forEach((n) => {
       if (!processedIds.current.has(n.id)) {
         processedIds.current.add(n.id);
         
-        const isSoundEnabled = typeof window !== "undefined" && localStorage.getItem("raymarkable_sound_enabled") !== "false";
+        const isSoundEnabled = typeof window !== "undefined" && localStorage.getItem(STORAGE_KEYS.SOUND_ENABLED) !== "false";
 
         // 1. Play audio chime if enabled in user settings
         if (isSoundEnabled) {
@@ -98,7 +108,7 @@ export function NotificationsListener() {
           duration: 8000,
           action: {
             label: "Dismiss",
-            onClick: () => readMutation.mutate(n.id),
+            onClick: () => markAsRead(n.id),
           },
         });
 
@@ -125,7 +135,10 @@ export function NotificationsListener() {
                   ]));
 
                 if (reg && "showNotification" in reg) {
-                  await reg.showNotification("Raymarkable Nudge", payload as any);
+                  await reg.showNotification(
+                    "Raymarkable Nudge",
+                    payload as NotificationOptions & { vibrate?: number[]; badge?: string }
+                  );
                   return;
                 }
               } catch (swErr) {
@@ -148,7 +161,7 @@ export function NotificationsListener() {
         }
       }
     });
-  }, [notifications, readMutation]);
+  }, [notifications, markAsRead]);
 
   return null;
 }

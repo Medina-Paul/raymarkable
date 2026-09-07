@@ -22,7 +22,7 @@ export function NoTeamView() {
     e.preventDefault();
     if (teamName.trim()) {
       createMutation.mutate(teamName.trim(), {
-        onError: (err: any) => toast.error(err.message || "Failed to create team"),
+        onError: (err: Error) => toast.error(err.message || "Failed to create team"),
       });
     }
   };
@@ -31,7 +31,7 @@ export function NoTeamView() {
     e.preventDefault();
     if (joinCode.trim()) {
       joinMutation.mutate(joinCode.trim(), {
-        onError: (err: any) => toast.error(err.message || "Failed to join team"),
+        onError: (err: Error) => toast.error(err.message || "Failed to join team"),
       });
     }
   };

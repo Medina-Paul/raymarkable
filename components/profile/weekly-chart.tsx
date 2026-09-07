@@ -4,10 +4,35 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useTheme } from "next-themes";
 import { useMounted } from "@/lib/hooks/use-mounted";
 
-const CustomAxisTick = ({ x, y, payload }: any) => {
+export interface WeeklyChartDataPoint {
+  label: string;
+  dayName: string;
+  dateName: string;
+  percent: number;
+  completed: number;
+  total: number;
+}
+
+interface CustomAxisTickProps {
+  x?: number;
+  y?: number;
+  payload?: {
+    value: string;
+  };
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: WeeklyChartDataPoint;
+  }>;
+}
+
+const CustomAxisTick = ({ x, y, payload }: CustomAxisTickProps) => {
+  if (!payload?.value) return null;
   const [day, date] = payload.value.split("|");
   return (
-    <g transform={`translate(${x},${y})`}>
+    <g transform={`translate(${x ?? 0},${y ?? 0})`}>
       <text x={0} y={0} dy={12} textAnchor="middle" fill="currentColor" className="text-gray-500 dark:text-zinc-400" fontSize={10} fontWeight={500}>
         {day}
       </text>
@@ -18,8 +43,7 @@ const CustomAxisTick = ({ x, y, payload }: any) => {
   );
 };
 
-const CustomTooltip = (props: any) => {
-  const { payload, active } = props;
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   if (!active || !payload || payload.length === 0) return null;
   
   const data = payload[0].payload;
@@ -55,7 +79,7 @@ const CustomTooltip = (props: any) => {
   );
 };
 
-export function WeeklyChart({ data }: { data: any[] }) {
+export function WeeklyChart({ data }: { data: WeeklyChartDataPoint[] }) {
   const { resolvedTheme } = useTheme();
   const mounted = useMounted();
 

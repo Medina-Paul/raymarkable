@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MoreVertical, Check, X, Plus, Minus, Clock } from "lucide-react";
 import type { Habit } from "@/lib/types/habit";
 import { useUpdateHabitProgress } from "@/lib/hooks/use-habits";
+import { useClickOutside } from "@/lib/hooks/use-click-outside";
+import { GRACE_PERIOD_HOURS } from "@/lib/constants";
 
 type Props = {
   habit: Habit;
@@ -14,16 +16,8 @@ type Props = {
 
 export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useClickOutside<HTMLDivElement>(() => setOpen(false));
   const updateProgress = useUpdateHabitProgress();
-
-  useEffect(() => {
-    function close(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
 
   // Determine status with 48-hour grace period
   const [now, setNow] = useState(() => new Date());
@@ -45,7 +39,7 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
   
   const nowMs = now.getTime();
   const scheduledMs = scheduledDate.getTime();
-  const gracePeriodEndMs = scheduledMs + 48 * 60 * 60 * 1000; // 48 Hours
+  const gracePeriodEndMs = scheduledMs + GRACE_PERIOD_HOURS * 60 * 60 * 1000;
 
   const isNumeric = habit.habitType === "numeric";
   const target = habit.targetValue || 1;

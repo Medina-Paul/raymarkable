@@ -6,6 +6,7 @@ import { useNotifications, useReadNotification } from "@/lib/hooks/use-teams";
 import { CheckCircle2, Clock, Inbox, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { ProfileCard } from "@/components/profile/profile-card";
+import { formatTime } from "@/lib/utils/formatters";
 
 export default function DashboardPage() {
   const { data: habits = [], isLoading: habitsLoading } = useHabits();
@@ -41,14 +42,6 @@ export default function DashboardPage() {
     // Otherwise, just return the first unscheduled/missed one
     return pending[0];
   }, [todayHabits, currentTime]);
-  
-  function formatTime(time: string) {
-    const [h, m] = time.split(':');
-    const hh = parseInt(h, 10);
-    const ampm = hh >= 12 ? 'PM' : 'AM';
-    const h12 = hh % 12 || 12;
-    return `${h12}:${m} ${ampm}`;
-  }
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">

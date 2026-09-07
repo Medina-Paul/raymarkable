@@ -95,8 +95,9 @@ export default function TeamsPage() {
             await leaveMutation.mutateAsync();
             toast.success("Left the team.");
             setIsLeaveModalOpen(false);
-          } catch (err: any) {
-            toast.error(err.message || "Failed to leave team.");
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Failed to leave team.";
+            toast.error(message);
           }
         }}
         title="Leave Team"
@@ -116,8 +117,9 @@ export default function TeamsPage() {
               await removeMutation.mutateAsync(memberToRemove.id);
               toast.success(`${memberToRemove.name} was removed from the team.`);
               setMemberToRemove(null);
-            } catch (err: any) {
-              toast.error(err.message || "Failed to remove member.");
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : "Failed to remove member.";
+              toast.error(message);
             }
           }
         }}

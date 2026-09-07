@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import Cropper from "react-easy-crop";
+import Cropper, { type Area } from "react-easy-crop";
 import { X, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -19,12 +19,12 @@ export function EditProfileModal({ isOpen, onClose, userId, currentName, onSucce
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const supabase = createClient();
 
-  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
@@ -39,7 +39,7 @@ export function EditProfileModal({ isOpen, onClose, userId, currentName, onSucce
     }
   };
 
-  const getCroppedImg = async (imageSrc: string, pixelCrop: any): Promise<Blob> => {
+  const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<Blob> => {
     const image = new Image();
     image.src = imageSrc;
     await new Promise(resolve => { image.onload = resolve; });
@@ -109,8 +109,9 @@ export function EditProfileModal({ isOpen, onClose, userId, currentName, onSucce
       toast.success("Profile updated!");
       onSuccess();
       onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update profile");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update profile";
+      toast.error(msg);
     } finally {
       setIsUploading(false);
     }

@@ -11,9 +11,12 @@ Why React Query?
 3. Supports "Optimistic Updates" so button clicks feel instantaneous (0ms UI lag).
 */
 
-const HABITS_KEY = ["habits"] as const;
-const CATEGORIES_KEY = ["categories"] as const;
-const PROFILE_KEY = ["profile"] as const;
+import { QUERY_KEYS } from "@/lib/api/query-keys";
+
+const HABITS_KEY = QUERY_KEYS.habits.all;
+const CATEGORIES_KEY = QUERY_KEYS.habits.categories;
+const PROFILE_KEY = QUERY_KEYS.profile.me;
+const TEAM_KEY = QUERY_KEYS.teams.me;
 
 // Fetch all user habits
 export function useHabits() {
@@ -31,6 +34,7 @@ export function useCreateHabit(onSuccess?: () => void) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: HABITS_KEY });
       qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
+      qc.invalidateQueries({ queryKey: TEAM_KEY });
       onSuccess?.();
     },
   });
@@ -43,6 +47,8 @@ export function useUpdateHabit(onSuccess?: () => void) {
     mutationFn: (habit: Habit) => api.updateHabit(habit),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: HABITS_KEY });
+      qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
+      qc.invalidateQueries({ queryKey: TEAM_KEY });
       onSuccess?.();
     },
   });
@@ -86,7 +92,7 @@ export function useUpdateHabitProgress() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: HABITS_KEY });
       qc.invalidateQueries({ queryKey: PROFILE_KEY });
-      qc.invalidateQueries({ queryKey: ["team", "me"] });
+      qc.invalidateQueries({ queryKey: TEAM_KEY });
     },
   });
 }
@@ -99,7 +105,7 @@ export function useToggleHabit() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: HABITS_KEY });
       qc.invalidateQueries({ queryKey: PROFILE_KEY });
-      qc.invalidateQueries({ queryKey: ["team", "me"] });
+      qc.invalidateQueries({ queryKey: TEAM_KEY });
     },
   });
 }
@@ -109,7 +115,11 @@ export function useDeleteHabit() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.deleteHabit(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: HABITS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: HABITS_KEY });
+      qc.invalidateQueries({ queryKey: PROFILE_KEY });
+      qc.invalidateQueries({ queryKey: TEAM_KEY });
+    },
   });
 }
 
@@ -128,6 +138,7 @@ export function useDeleteCategory() {
     mutationFn: (id: string) => api.deleteCategory(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
+      qc.invalidateQueries({ queryKey: HABITS_KEY });
     },
   });
 }
@@ -147,7 +158,7 @@ export function useUpdateProfile() {
     mutationFn: (data: { name?: string; avatarUrl?: string; successThreshold?: number }) => api.updateProfile(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROFILE_KEY });
-      qc.invalidateQueries({ queryKey: ["team", "me"] });
+      qc.invalidateQueries({ queryKey: TEAM_KEY });
     },
   });
 }

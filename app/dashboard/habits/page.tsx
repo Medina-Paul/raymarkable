@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Plus, ChevronDown } from "lucide-react";
 import type { Habit } from "@/lib/types/habit";
 import {
@@ -15,6 +15,7 @@ import { useGroupedHabits } from "@/lib/hooks/use-grouped-habits";
 import { HabitItem } from "@/components/habits/habit-item";
 import { HabitModal } from "@/components/habits/habit-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { useClickOutside } from "@/lib/hooks/use-click-outside";
 
 /*
 HABITS PAGE
@@ -29,7 +30,7 @@ export default function HabitsPage() {
   const [deletingHabit, setDeletingHabit] = useState<Habit | null>(null);
   const [confirmingHabit, setConfirmingHabit] = useState<Habit | null>(null);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useClickOutside<HTMLDivElement>(() => setIsMobileDropdownOpen(false));
 
   // Queries & Mutations
   const { data: habits = [], isLoading } = useHabits();
@@ -44,20 +45,8 @@ export default function HabitsPage() {
   const { groupedHabits, tabs, formatDateHeader } = useGroupedHabits(
     habits,
     categories,
-    activeTab,
-    setActiveTab
+    activeTab
   );
-
-  // Close mobile dropdown when clicking outside
-  useEffect(() => {
-    function close(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsMobileDropdownOpen(false);
-      }
-    }
-    if (isMobileDropdownOpen) document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [isMobileDropdownOpen]);
 
   return (
     <div className="max-w-4xl lg:max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 min-h-full">

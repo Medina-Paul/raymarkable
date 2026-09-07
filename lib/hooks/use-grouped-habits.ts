@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Habit, Category } from "@/lib/types/habit";
+import { formatLocalDate } from "@/lib/utils/formatters";
+import { GRACE_PERIOD_HOURS } from "@/lib/constants";
 
 /*
 USE GROUPED HABITS HOOK
@@ -12,16 +14,18 @@ Encapsulates all domain logic for habits page filtering:
 5. Formats date headers ("Today", "Yesterday (Grace Period)", etc.).
 */
 
+const EMPTY_HABITS: Habit[] = [];
+const EMPTY_CATEGORIES: Category[] = [];
+
 export interface HabitDateGroup {
   date: string;
   habits: Habit[];
 }
 
 export function useGroupedHabits(
-  habits: Habit[] = [],
-  categories: Category[] = [],
-  activeTab: string,
-  setActiveTab?: (tab: string) => void
+  habits: Habit[] = EMPTY_HABITS,
+  categories: Category[] = EMPTY_CATEGORIES,
+  activeTab: string
 ) {
   const [now, setNow] = useState(() => new Date());
 
@@ -31,20 +35,12 @@ export function useGroupedHabits(
     return () => clearInterval(timer);
   }, []);
 
-  const todayStr = useMemo(() => {
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const d = String(now.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }, [now]);
+  const todayStr = useMemo(() => formatLocalDate(now), [now]);
 
   const yesterdayStr = useMemo(() => {
     const yest = new Date(now);
     yest.setDate(yest.getDate() - 1);
-    const y = yest.getFullYear();
-    const m = String(yest.getMonth() + 1).padStart(2, "0");
-    const d = String(yest.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    return formatLocalDate(yest);
   }, [now]);
 
   // Dynamic tabs: standard views + user categories
@@ -54,42 +50,38 @@ export function useGroupedHabits(
     return [...baseTabs, ...categoryTabs];
   }, [categories]);
 
-  // Fallback to "Today" if the active category tab was removed
-  useEffect(() => {
-    if (setActiveTab && !tabs.includes(activeTab)) {
-      setActiveTab("Today");
-    }
-  }, [tabs, activeTab, setActiveTab]);
+  // Derive effective active tab during render instead of cascading useEffect setState
+  const effectiveTab = tabs.includes(activeTab) ? activeTab : "Today";
 
   // Group and filter habits
   const groupedHabits: HabitDateGroup[] = useMemo(() => {
     const nowMs = now.getTime();
 
-    // A habit is missed if past deadline + 48 hours without completion
+    // A habit is missed if past deadline + GRACE_PERIOD_HOURS without completion
     const isMissed = (h: Habit) => {
       if (h.completed) return false;
       const [year, month, day] = h.date.split("-").map(Number);
       const [hh, mm] = h.deadlineTime ? h.deadlineTime.split(":").map(Number) : [23, 59];
       const scheduledMs = new Date(year, month - 1, day, hh, mm, 59).getTime();
-      const graceEndMs = scheduledMs + 48 * 60 * 60 * 1000;
+      const graceEndMs = scheduledMs + GRACE_PERIOD_HOURS * 60 * 60 * 1000;
       return nowMs > graceEndMs;
     };
 
     let filtered = habits;
 
-    if (activeTab === "Archive") {
+    if (effectiveTab === "Archive") {
       // Historical completed habits (past dates) AND expired habits (>48h grace)
       filtered = habits.filter(
         (h) => (h.completed && h.date < todayStr) || isMissed(h)
       );
-    } else if (activeTab === "Today") {
+    } else if (effectiveTab === "Today") {
       // Today's habits (all) + yesterday's pending habits still in grace window
       filtered = habits.filter(
         (h) =>
           h.date === todayStr ||
           (h.date === yesterdayStr && !h.completed && !isMissed(h))
       );
-    } else if (activeTab === "All") {
+    } else if (effectiveTab === "All") {
       // All active pending habits + today's habits
       filtered = habits.filter(
         (h) => (!h.completed && !isMissed(h)) || h.date === todayStr
@@ -98,7 +90,7 @@ export function useGroupedHabits(
       // Category tab: active habits + today's habits matching the category name
       filtered = habits.filter(
         (h) =>
-          h.category === activeTab &&
+          h.category === effectiveTab &&
           ((!h.completed && !isMissed(h)) || h.date === todayStr)
       );
     }
@@ -117,7 +109,7 @@ export function useGroupedHabits(
       date,
       habits: groups[date],
     }));
-  }, [habits, activeTab, todayStr, yesterdayStr, now]);
+  }, [habits, effectiveTab, todayStr, yesterdayStr, now]);
 
   // Human-friendly date header helper
   const formatDateHeader = (dateStr: string) => {
@@ -139,5 +131,6 @@ export function useGroupedHabits(
     todayStr,
     yesterdayStr,
     formatDateHeader,
+    activeTab: effectiveTab,
   };
 }

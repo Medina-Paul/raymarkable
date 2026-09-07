@@ -18,16 +18,25 @@ export const userRoutes = new Elysia()
   GET /api/v1/me
   Fetches the user's dashboard overview: total habits, completed habits, and live streak.
   */
-  .get('/me', async ({ user, set }) => {
+  .get('/me', async ({ user, headers, set }) => {
     const me = await db.select().from(users).where(eq(users.id, user.id)).limit(1).then(res => res[0]);
     if (!me) {
       set.status = 404;
       return { success: false, error: 'User not found' };
     }
     
-    // 1. Fetch total and completed habits count
-    const totalHabits = await db.select({ id: habits.id }).from(habits).where(eq(habits.userId, user.id));
-    const completedCount = await db.select({ id: habits.id }).from(habits).where(and(eq(habits.userId, user.id), eq(habits.isActive, false)));
+    const clientDate = (headers['x-client-date'] as string) || normalizeDate(new Date());
+
+    // 1. Fetch today's total and completed habits count
+    const totalHabits = await db
+      .select({ id: habits.id })
+      .from(habits)
+      .where(and(eq(habits.userId, user.id), eq(habits.date, clientDate)));
+
+    const completedCount = await db
+      .select({ id: habits.id })
+      .from(habits)
+      .where(and(eq(habits.userId, user.id), eq(habits.date, clientDate), eq(habits.isActive, false)));
     
     // 2. Fetch the most recent completed habit activity (ordered properly by date and creation)
     const latest = await db.select({ title: habits.title, date: habits.date }).from(habits)
@@ -37,25 +46,40 @@ export const userRoutes = new Elysia()
 
     // 3. Dynamic Streak Calculation
     // Instead of relying on a static counter, we calculate consecutive active days dynamically
-    // from actual completed dates in habit_logs.
+    // from actual completed dates in habit_logs, anchored to the user's localized device date.
     const logs = await db.select({ completedDate: habitLogs.completedDate })
       .from(habitLogs)
       .innerJoin(habits, eq(habitLogs.habitId, habits.id))
       .where(eq(habits.userId, user.id))
       .orderBy(habitLogs.completedDate);
       
-    // Dynamic Streak Calculation using centralized service
-    const { currentStreak } = calculateStreaks(logs.map(l => l.completedDate));
+    const { currentStreak, bestStreak: calculatedBest } = calculateStreaks(
+      logs.map(l => l.completedDate),
+      clientDate
+    );
+
+    // Maintain historical best record (e.g. 13) or upgrade when currentStreak surpasses it
+    const effectiveBest = Math.max(calculatedBest, me.bestStreak || 0, currentStreak);
+    
+    if (effectiveBest > (me.bestStreak || 0) || currentStreak !== me.currentStreak) {
+      await db.update(users).set({
+        bestStreak: effectiveBest,
+        currentStreak: currentStreak,
+      }).where(eq(users.id, user.id));
+    }
 
     return {
       name: me.name,
       avatarUrl: me.avatarUrl,
       streak: currentStreak,
+      bestStreak: effectiveBest,
       totalHabits: totalHabits.length,
       completedHabits: completedCount.length,
+      activeHabits: totalHabits.length - completedCount.length,
       latestActivity: latest ? { title: latest.title, date: normalizeDate(latest.date) } : null
     };
   })
+
   
   /*
   PATCH /api/v1/me

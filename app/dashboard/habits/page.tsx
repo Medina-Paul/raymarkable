@@ -9,6 +9,7 @@ import {
   useUpdateHabit,
   useToggleHabit,
   useDeleteHabit,
+  useStopRepeatingHabit,
   useCategories,
 } from "@/lib/hooks/use-habits";
 import { useGroupedHabits } from "@/lib/hooks/use-grouped-habits";
@@ -29,6 +30,7 @@ export default function HabitsPage() {
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [deletingHabit, setDeletingHabit] = useState<Habit | null>(null);
   const [confirmingHabit, setConfirmingHabit] = useState<Habit | null>(null);
+  const [stoppingHabit, setStoppingHabit] = useState<Habit | null>(null);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
   const dropdownRef = useClickOutside<HTMLDivElement>(() => setIsMobileDropdownOpen(false));
 
@@ -40,6 +42,7 @@ export default function HabitsPage() {
   const updateMutation = useUpdateHabit(() => setEditingHabit(null));
   const toggleMutation = useToggleHabit();
   const deleteMutation = useDeleteHabit();
+  const stopRepeatingMutation = useStopRepeatingHabit();
 
   // Business logic hook: date math, grace window, and grouping
   const { groupedHabits, tabs, formatDateHeader } = useGroupedHabits(
@@ -139,6 +142,7 @@ export default function HabitsPage() {
                       onToggle={() => setConfirmingHabit(habit)}
                       onEdit={() => setEditingHabit(habit)}
                       onDelete={() => setDeletingHabit(habit)}
+                      onStopRepeating={() => setStoppingHabit(habit)}
                     />
                   ))}
                 </div>
@@ -194,6 +198,23 @@ export default function HabitsPage() {
         description={`Are you sure you want to mark "${confirmingHabit?.title}" as completed?`}
         isLoading={toggleMutation.isPending}
         variant="primary"
+      />
+
+      {/* Stop Repeating Modal */}
+      <ConfirmModal
+        isOpen={stoppingHabit !== null}
+        onClose={() => setStoppingHabit(null)}
+        onConfirm={async () => {
+          if (stoppingHabit) {
+            await stopRepeatingMutation.mutateAsync(stoppingHabit.id);
+            setStoppingHabit(null);
+          }
+        }}
+        title="Stop Repeating Habit"
+        description={`Are you sure you want to stop repeating "${stoppingHabit?.title}"? Future days will no longer automatically spawn this habit, but all past completed history will remain intact.`}
+        confirmText="Stop Repeating"
+        isLoading={stopRepeatingMutation.isPending}
+        variant="danger"
       />
 
       {/* Delete Habit Modal */}

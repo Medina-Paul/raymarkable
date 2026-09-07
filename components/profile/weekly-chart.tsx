@@ -92,9 +92,9 @@ export function WeeklyChart({ data }: { data: WeeklyChartDataPoint[] }) {
     <div className="bg-white dark:bg-zinc-900 p-6 pb-2 border border-gray-200 dark:border-zinc-800 h-full flex flex-col relative">
       <h3 className="text-sm font-bold text-black dark:text-white mb-6">Weekly Progress</h3>
       
-      <div className="h-64 w-full mt-4 -ml-4">
+      <div className="h-64 w-full mt-4 outline-none focus:outline-none select-none [&_*]:outline-none [&_*]:focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [-webkit-tap-highlight-color:transparent]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+          <LineChart data={data} margin={{ top: 10, right: 25, left: -25, bottom: 20 }}>
             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke={gridColor} />
             
             <XAxis 
@@ -104,6 +104,7 @@ export function WeeklyChart({ data }: { data: WeeklyChartDataPoint[] }) {
               axisLine={false}
               tickLine={false}
               tickMargin={10}
+              padding={{ left: 15, right: 15 }}
             />
             
             <YAxis 

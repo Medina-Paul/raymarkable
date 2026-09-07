@@ -4,8 +4,16 @@
 
 import type { TeamData } from "@/lib/types/team";
 import type { Notification } from "@/lib/types/notification";
+import { formatLocalDate } from "@/lib/utils/formatters";
 
 const API_BASE = '/api/v1';
+
+function getClientHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  return {
+    'x-client-date': formatLocalDate(new Date()),
+  };
+}
 
 async function parseError(res: Response, fallback: string): Promise<string> {
   try {
@@ -18,10 +26,13 @@ async function parseError(res: Response, fallback: string): Promise<string> {
 }
 
 export async function fetchMyTeam(): Promise<TeamData> {
-  const res = await fetch(`${API_BASE}/teams/me`);
+  const res = await fetch(`${API_BASE}/teams/me`, {
+    headers: getClientHeaders(),
+  });
   if (!res.ok) throw new Error(await parseError(res, "Failed to fetch team"));
   return res.json();
 }
+
 
 export async function createTeam(name: string): Promise<{ success: boolean; team: unknown }> {
   const res = await fetch(`${API_BASE}/teams`, {

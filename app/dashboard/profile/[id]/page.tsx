@@ -4,6 +4,7 @@ import { ProfileView } from "@/components/profile/profile-view";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 
 export default async function TeamMemberProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,5 +26,9 @@ export default async function TeamMemberProfilePage({ params }: { params: Promis
     redirect("/dashboard/teams");
   }
 
-  return <ProfileView targetUserId={id} isOwnProfile={false} />;
+  const cookieStore = await cookies();
+  const clientDate = cookieStore.get("x-client-date")?.value;
+
+  return <ProfileView targetUserId={id} isOwnProfile={false} clientDate={clientDate} />;
 }
+

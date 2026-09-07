@@ -1,7 +1,15 @@
 import type { Habit, CreateHabitInput, Category } from "@/lib/types/habit";
+import { formatLocalDate } from "@/lib/utils/formatters";
 
 // We now call the real Elysia API running locally in Next.js
 const API_BASE = '/api/v1';
+
+function getClientHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  return {
+    'x-client-date': formatLocalDate(new Date()),
+  };
+}
 
 async function parseError(res: Response, defaultMessage: string): Promise<string> {
   try {
@@ -14,10 +22,13 @@ async function parseError(res: Response, defaultMessage: string): Promise<string
 }
 
 export async function fetchHabits(): Promise<Habit[]> {
-  const res = await fetch(`${API_BASE}/habits`);
+  const res = await fetch(`${API_BASE}/habits`, {
+    headers: getClientHeaders(),
+  });
   if (!res.ok) throw new Error(await parseError(res, 'Failed to fetch habits'));
   return res.json();
 }
+
 
 export async function createHabit(input: CreateHabitInput): Promise<Habit> {
   const res = await fetch(`${API_BASE}/habits`, {
@@ -66,6 +77,14 @@ export async function toggleHabit(id: string): Promise<Habit> {
   return res.json();
 }
 
+export async function stopRepeatingHabit(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/habits/${id}/stop-repeating`, {
+    method: 'PATCH',
+    headers: getClientHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, 'Failed to stop repeating habit'));
+}
+
 export async function deleteHabit(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/habits/${id}`, {
     method: 'DELETE',
@@ -91,10 +110,13 @@ export async function deleteCategory(id: string): Promise<void> {
 }
 
 export async function fetchProfile() {
-  const res = await fetch(`${API_BASE}/me`);
+  const res = await fetch(`${API_BASE}/me`, {
+    headers: getClientHeaders(),
+  });
   if (!res.ok) throw new Error(await parseError(res, 'Failed to fetch profile'));
   return res.json();
 }
+
 
 export async function updateProfile(data: { name?: string; avatarUrl?: string; successThreshold?: number }) {
   const res = await fetch(`${API_BASE}/me`, {

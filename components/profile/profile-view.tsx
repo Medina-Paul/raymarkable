@@ -8,8 +8,15 @@ import { Heatmap } from "@/components/profile/heatmap";
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { calculateStreaks, normalizeDate } from "@/lib/services/streak";
 
-export async function ProfileView({ targetUserId, isOwnProfile }: { targetUserId: string; isOwnProfile: boolean }) {
-
+export async function ProfileView({ 
+  targetUserId, 
+  isOwnProfile,
+  clientDate 
+}: { 
+  targetUserId: string; 
+  isOwnProfile: boolean;
+  clientDate?: string;
+}) {
 
   // Fetch the synced public user profile from our database
   const profile = await db.query.users.findFirst({
@@ -20,7 +27,12 @@ export async function ProfileView({ targetUserId, isOwnProfile }: { targetUserId
     ? new Date(profile.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : "Recently";
 
-  const today = new Date();
+  const effectiveDateStr = clientDate && clientDate.length >= 10 
+    ? clientDate.split("T")[0] 
+    : normalizeDate(new Date());
+
+  const [refY, refM, refD] = effectiveDateStr.split("-").map(Number);
+  const today = new Date(refY, refM - 1, refD);
   
   // Fetch ALL habits for the user to compute exact stats in JS (faster and cleaner for this scale)
   const allHabits = await db
@@ -64,8 +76,20 @@ export async function ProfileView({ targetUserId, isOwnProfile }: { targetUserId
   .where(eq(habits.userId, targetUserId));
 
   // --- STREAK LOGIC (Single Source of Truth) ---
-  const { currentStreak, bestStreak: calculatedBest } = calculateStreaks(completedLogs.map(l => l.date));
+  const { currentStreak, bestStreak: calculatedBest } = calculateStreaks(
+    completedLogs.map(l => l.date),
+    clientDate
+  );
   const bestStreak = Math.max(calculatedBest, profile?.bestStreak || 0, currentStreak);
+
+  // Sync DB records if bestStreak upgraded or currentStreak changed
+  if (isOwnProfile && (bestStreak > (profile?.bestStreak || 0) || currentStreak !== (profile?.currentStreak ?? 0))) {
+    await db.update(users).set({
+      bestStreak,
+      currentStreak,
+    }).where(eq(users.id, targetUserId));
+  }
+
 
   // --- WEEKLY CHART DATA ---
   const weeklyData = [];

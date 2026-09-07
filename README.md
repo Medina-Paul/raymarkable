@@ -23,11 +23,14 @@ For comprehensive engineering details, database ER diagrams, API specifications,
 
 ## ✨ Key Features
 
-- **Dual Tracking Modes**:
+- **Flexible Tracking Modes**:
   - **Simple Checkmark**: 1-click completion for boolean habits.
-  - **Target Counter (Numeric)**: Step increment stepper (`+` / `-`) for quantitative habits (pages read, water drank, reps completed) with optimistic UI.
+  - **Target Counter (Numeric)**: Step increment stepper (`+` / `-`) for quantitative habits (pages read, water drank, reps completed) with 0ms optimistic UI and debounced sync.
+- **Repeating Habits Engine**:
+  - Automatically auto-spawns fresh pending habits on scheduled days (`scheduledDays`).
+  - Dedicated "Stop Repeating" controls to cancel future auto-generations without deleting past history.
 - **Anti-Cheat & 48-Hour Grace Window**: Strict anti-cheat logic prevents retroactively logging missed habits into the deep past while providing a 48-hour grace period for yesterday's habits.
-- **Dynamic Streak Calculation**: Streaks are computed on-the-fly from immutable completion logs (`habit_logs`), ensuring zero streak drift or desync.
+- **Timezone-Anchored Dynamic Streak Engine**: Streaks are dynamically computed on-the-fly from immutable completion logs (`habit_logs`) anchored to the user's localized device date (`clientDate`), ensuring zero timezone drift or desync.
 - **Accountability Pods (Max 5 Members)**:
   - Join or create small accountability teams via secret invite codes.
   - Inspect teammates' active habits for today.
@@ -36,8 +39,8 @@ For comprehensive engineering details, database ER diagrams, API specifications,
 - **Visual Progress & Analytics**:
   - Daily completion ring.
   - 12-week GitHub-style activity heatmap colored by custom goal thresholds (e.g. 75%).
-  - 7-day weekly progress spline line chart with circular percentage donut tooltips.
-  - Interactive monthly calendar with daily metrics breakdown and category volumes.
+  - 7-day weekly progress spline line chart with padded X-axis ticks and circular percentage donut tooltips.
+  - Interactive monthly calendar with daily metrics breakdown and standardized category completion rates.
 - **PWA & Web Push Notifications**:
   - Native Web Push Notifications powered by VAPID and Service Worker push event listener.
   - Service Worker asset caching (`sw.js`) with Cache-First strategy for ultra-fast static resource loading.

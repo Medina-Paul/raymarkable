@@ -48,7 +48,9 @@ export function ProfileCard() {
         <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center divide-x divide-gray-100 dark:divide-zinc-800 mb-2">
           <div>
             <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium mb-1">Active</p>
-            <p className="text-xl font-semibold text-gray-900 dark:text-white">{profile.totalHabits - profile.completedHabits}</p>
+            <p className="text-xl font-semibold text-gray-900 dark:text-white">
+              {profile.activeHabits !== undefined ? profile.activeHabits : (profile.totalHabits - profile.completedHabits)}
+            </p>
           </div>
           <div>
             <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium mb-1">Completed</p>

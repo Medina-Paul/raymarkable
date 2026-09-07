@@ -12,23 +12,24 @@ export interface StreakResult {
 
 /**
  * Normalizes any date value (string, Date, timestamp) into standard "YYYY-MM-DD"
+ * Preserves the exact stored calendar date regardless of server/host timezone.
  */
 export function normalizeDate(date: string | Date | unknown): string {
   if (typeof date === "string") return date.split("T")[0];
   if (date instanceof Date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    return date.toISOString().split("T")[0];
   }
   return String(date || "");
 }
 
 /**
  * Calculates current consecutive streak and maximum historical streak
- * from an array of completion dates.
+ * from an array of completion dates, anchored to the user's localized reference date.
  */
-export function calculateStreaks(completedDates: (string | Date)[]): StreakResult {
+export function calculateStreaks(
+  completedDates: (string | Date)[],
+  clientDate?: string
+): StreakResult {
   if (!completedDates || completedDates.length === 0) {
     return { currentStreak: 0, bestStreak: 0 };
   }
@@ -44,17 +45,17 @@ export function calculateStreaks(completedDates: (string | Date)[]): StreakResul
 
   let tempStreak = 0;
   let maxHistoricalStreak = 0;
-  let prevDate: Date | null = null;
+  let prevDateMs: number | null = null;
 
   // Traverse historical logs in chronological order to compute consecutive active days
   for (let i = 0; i < logDates.length; i++) {
     const [year, month, day] = logDates[i].split("-").map(Number);
-    const currDate = new Date(year, month - 1, day);
+    const currDateMs = Date.UTC(year, month - 1, day);
 
-    if (!prevDate) {
+    if (prevDateMs === null) {
       tempStreak = 1;
     } else {
-      const diffTime = currDate.getTime() - prevDate.getTime();
+      const diffTime = currDateMs - prevDateMs;
       const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
 
       if (diffDays === 1) {
@@ -67,19 +68,20 @@ export function calculateStreaks(completedDates: (string | Date)[]): StreakResul
     if (tempStreak > maxHistoricalStreak) {
       maxHistoricalStreak = tempStreak;
     }
-    prevDate = currDate;
+    prevDateMs = currDateMs;
   }
 
-  // Check 48-hour grace window (today or yesterday)
-  const now = new Date();
-  const todayStr = normalizeDate(now);
+  // Determine effective today & yesterday based on user's device date
+  const effectiveToday = clientDate && clientDate.length >= 10
+    ? clientDate.split("T")[0]
+    : normalizeDate(new Date());
 
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const yesterdayStr = normalizeDate(yesterday);
+  const [y, m, d] = effectiveToday.split("-").map(Number);
+  const yesterdayObj = new Date(Date.UTC(y, m - 1, d - 1));
+  const effectiveYesterday = yesterdayObj.toISOString().split("T")[0];
 
   const lastLogDate = logDates[logDates.length - 1];
-  const isStreakAlive = lastLogDate === todayStr || lastLogDate === yesterdayStr;
+  const isStreakAlive = lastLogDate === effectiveToday || lastLogDate === effectiveYesterday;
   const currentStreak = isStreakAlive ? tempStreak : 0;
 
   return {
@@ -87,3 +89,4 @@ export function calculateStreaks(completedDates: (string | Date)[]): StreakResul
     bestStreak: maxHistoricalStreak,
   };
 }
+

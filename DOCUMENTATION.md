@@ -196,9 +196,17 @@ To ensure sub-millisecond query execution under concurrent loads, Drizzle define
 Habits support two distinct operational modes:
 1. **Simple Boolean Checkmark**: 1-click completion toggle (`is_active = false`).
 2. **Target Counter (Numeric)**: Incremental stepper (`+` / `-`) for quantitative goals (e.g., *Read 25 pages*, *Drink 2500 ml*).
-   - Updates UI instantly via **Optimistic Updates** with debounce synchronization (350ms).
+   - Updates UI instantly via **Optimistic Updates** with smooth debounce synchronization (300ms) sending exact target `{ value: N }` to prevent concurrent read-modify-write race conditions.
+   - Directly synchronizes React Query cache on server response to avoid disruptive full-list refetches.
    - When `current_value >= target_value`, the habit automatically marks as completed and writes to `habit_logs`.
    - Supports overachievement indicators (`+N OVER`).
+
+### Repeating / Recurring Habit Engine
+
+- **Automated Blueprint Spawning**: Habits configured with `scheduled_days` (e.g., `["MON", "TUE", "WED", "THU", "FRI"]`) serve as recurring blueprints.
+- When `GET /api/v1/habits` is called with the user's localized `x-client-date`, the system evaluates if today's day of the week matches the schedule.
+- If scheduled and no instance exists for today, a fresh pending habit (`current_value = 0`, `is_active = true`) is automatically generated for today.
+- **Stop Repeating Control**: Users can click **Stop Repeating** on any recurring habit item to set `scheduled_days = null` across that habit series (`PATCH /api/v1/habits/:id/stop-repeating`), stopping future generations while preserving all past completed history intact.
 
 ### Anti-Cheat & 48-Hour Grace Period
 
@@ -209,11 +217,12 @@ To ensure data integrity and discourage retroactively falsifying streaks:
 
 ### Dynamic Streak Engine
 
-Streaks are **never statically incremented**; they are dynamically computed from verified completion records in `habit_logs`:
+Streaks are **never statically incremented**; they are dynamically computed from verified completion records in `habit_logs`, strictly anchored to the user's localized device date (`clientDate`):
 1. Historical dates from `habit_logs` are deduplicated and sorted chronologically: `[YYYY-MM-DD, ...]`.
-2. A sliding difference loop calculates consecutive day chains. Any gap $> 1\text{ day}$ resets the chain.
-3. **48-Hour Liveness Grace**: If the most recent completion was **Today** or **Yesterday**, the streak is considered alive. If no tasks were completed yesterday or today, the dynamic streak drops to `0`.
-4. `bestStreak` is maintained as the maximum between all historical streaks and the current streak.
+2. Safe date normalization guarantees PostgreSQL UTC midnight date stamps deserialize without 1-day shifts across negative timezones.
+3. Consecutive day intervals are calculated using DST-immune `Date.UTC` timestamps.
+4. **48-Hour Liveness Grace**: If the most recent completion is **`clientToday`**, the active streak increments. If the last log is **`clientYesterday`**, the streak remains alive until midnight. If no tasks were completed yesterday or today, the dynamic streak drops to `0`.
+5. **Historical Benchmark Preservation**: `bestStreak` retains historical personal records (e.g. 13) and automatically upgrades in the database whenever `currentStreak` surpasses the record.
 
 ### Accountability Pods & Teammate Nudges
 
@@ -230,8 +239,8 @@ Streaks are **never statically incremented**; they are dynamically computed from
 1. **Daily Progress Ring**: SVG circular stroke dash offset showing percentage completion for today's habits.
 2. **Next Up Widget**: Computes the upcoming pending habit based on the client's current time and habit deadline.
 3. **12-Week Activity Heatmap**: GitHub-style green density grid (84 days), dynamically colored according to the user's custom `success_threshold` (default: 75%).
-4. **Weekly Progress Line Chart**: Recharts-powered 7-day spline chart with responsive tooltips containing miniature donut completion graphs.
-5. **Interactive Monthly Calendar**: Day-by-day cell navigation with habit volume, category completion rates, and best/lowest day statistics.
+4. **Weekly Progress Line Chart**: Recharts-powered 7-day spline chart with padded X-axis ticks (preventing label cutoff), tap focus suppression, and responsive tooltips containing miniature donut completion graphs.
+5. **Interactive Monthly Calendar**: Day-by-day cell navigation with daily completion metrics, best/lowest day statistics, and standardized **Category Progress** rates (`completed/total (percent%)`) that prevent unit mixing errors.
 
 ### Audio Engine (Synthesized Chime)
 
@@ -258,19 +267,20 @@ Teammate nudges trigger an acoustic cue without requiring external MP3/WAV asset
 
 ## API Reference (Elysia REST Endpoints)
 
-All endpoints are mounted under prefix `/api/v1` via Next.js catch-all route handler `app/api/[[...slug]]/route.ts`. Requests inherit the Supabase session via cookie validation.
+All endpoints are mounted under prefix `/api/v1` via Next.js catch-all route handler `app/api/[[...slug]]/route.ts`. Requests inherit the Supabase session via cookie validation and accept optional `x-client-date` headers.
 
 ### User Endpoints
-- `GET /api/v1/me`: Returns user profile, dynamic streak, total habits, completed count, and latest activity.
+- `GET /api/v1/me`: Returns user profile, dynamic streak, today-scoped habit counts (`activeHabits`, `completedHabits`, `totalHabits`), and latest activity.
 - `PATCH /api/v1/me`: Updates profile fields (`name`, `avatarUrl`, `successThreshold`).
 - `DELETE /api/v1/me`: Permanently deletes user account, cascades deletion across all tables, and handles pod succession/cleanup.
 
 ### Habit Endpoints
-- `GET /api/v1/habits`: Fetches all user habits with category names and active status.
+- `GET /api/v1/habits`: Fetches all user habits with category names and active status. Automatically auto-spawns scheduled recurring habits if today matches their repeat schedule.
 - `POST /api/v1/habits`: Creates a new habit (validates 48h grace window, auto-creates/reactivates category).
 - `PUT /api/v1/habits/:id`: Updates habit title, date, deadline, scheduled days, or targets.
-- `PATCH /api/v1/habits/:id/progress`: Increments/decrements numeric habit progress, updates `habit_logs`, and broadcasts social celebration if completed.
+- `PATCH /api/v1/habits/:id/progress`: Increments/decrements numeric habit progress or sets exact value, updates `habit_logs`, and broadcasts social celebration if completed.
 - `PATCH /api/v1/habits/:id/toggle`: 1-click toggle for boolean habits.
+- `PATCH /api/v1/habits/:id/stop-repeating`: Removes recurrence (`scheduledDays = null`) from this habit and all instances of the same series.
 - `DELETE /api/v1/habits/:id`: Permanently deletes a habit and cascades historical logs.
 
 ### Category Endpoints

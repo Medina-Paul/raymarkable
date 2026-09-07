@@ -38,7 +38,7 @@ export const teamsRoutes = new Elysia()
   GET /api/v1/teams/me
   Fetches the user's current team, member roster, today's and grace-period pending tasks per member, and live activity feed.
   */
-  .get('/teams/me', async ({ user }) => {
+  .get('/teams/me', async ({ user, headers }) => {
     // Check if the current user belongs to a team
     const currentUser = await db.select({ teamId: users.teamId }).from(users).where(eq(users.id, user.id)).limit(1).then(res => res[0]);
     if (!currentUser?.teamId) {
@@ -63,11 +63,12 @@ export const teamsRoutes = new Elysia()
       return { team, members: [], events: [], currentUserId: user.id };
     }
     
+    const clientDate = (headers['x-client-date'] as string) || normalizeDate(new Date());
+    const todayStr = clientDate;
+    const [y, m, d] = todayStr.split("-").map(Number);
+    const yesterdayObj = new Date(Date.UTC(y, m - 1, d - 1));
+    const yesterdayStr = yesterdayObj.toISOString().split("T")[0];
     const now = new Date();
-    const todayStr = normalizeDate(now);
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = normalizeDate(yesterday);
     const nowMs = now.getTime();
 
     // 1. Batch query active habits for today and yesterday (48h grace window)
@@ -138,7 +139,7 @@ export const teamsRoutes = new Elysia()
     // Compose members with centralized streak calculation and grace-aware active habits
     const members = membersData.map((member) => {
       const userLogDates = memberLogsMap.get(member.id) || [];
-      const { currentStreak } = calculateStreaks(userLogDates);
+      const { currentStreak } = calculateStreaks(userLogDates, clientDate);
       const activeHabits = memberHabitsMap.get(member.id) || [];
 
       return {
@@ -147,6 +148,7 @@ export const teamsRoutes = new Elysia()
         activeHabits,
       };
     });
+
     
     // Fetch last 50 social team events for the live feed
     const events = await db.select({

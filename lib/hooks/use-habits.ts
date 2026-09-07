@@ -62,7 +62,19 @@ Update numeric habit progress (e.g. +1 page, +250ml water) with OPTIMISTIC UI:
 */
 export function useUpdateHabitProgress() {
   const qc = useQueryClient();
-  return useMutation({
+
+  const optimisticUpdate = (id: string, nextVal: number) => {
+    qc.setQueryData<Habit[]>(HABITS_KEY, (prev) => {
+      if (!prev) return prev;
+      return prev.map((h) => {
+        if (h.id !== id) return h;
+        const isComp = h.targetValue ? nextVal >= h.targetValue : false;
+        return { ...h, currentValue: nextVal, completed: isComp };
+      });
+    });
+  };
+
+  const mutation = useMutation({
     mutationFn: ({ id, delta, value }: { id: string; delta?: number; value?: number }) =>
       api.updateHabitProgress(id, { delta, value }),
     onMutate: async ({ id, delta, value }) => {
@@ -75,8 +87,8 @@ export function useUpdateHabitProgress() {
           previousHabits.map((h) => {
             if (h.id !== id) return h;
             let nextVal = h.currentValue;
-            if (typeof delta === 'number') nextVal = Math.max(0, h.currentValue + delta);
-            else if (typeof value === 'number') nextVal = Math.max(0, value);
+            if (typeof value === 'number') nextVal = Math.max(0, value);
+            else if (typeof delta === 'number') nextVal = Math.max(0, h.currentValue + delta);
             const isComp = h.targetValue ? nextVal >= h.targetValue : false;
             return { ...h, currentValue: nextVal, completed: isComp };
           })
@@ -84,17 +96,32 @@ export function useUpdateHabitProgress() {
       }
       return { previousHabits };
     },
+    onSuccess: (updatedHabit) => {
+      qc.setQueryData<Habit[]>(HABITS_KEY, (prev) => {
+        if (!prev) return prev;
+        return prev.map((h) => {
+          if (h.id !== updatedHabit.id) return h;
+          return {
+            ...h,
+            currentValue: updatedHabit.currentValue,
+            completed: updatedHabit.completed,
+          };
+        });
+      });
+      qc.invalidateQueries({ queryKey: PROFILE_KEY });
+      qc.invalidateQueries({ queryKey: TEAM_KEY });
+    },
     onError: (_err, _variables, context) => {
       if (context?.previousHabits) {
         qc.setQueryData(HABITS_KEY, context.previousHabits);
       }
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: HABITS_KEY });
-      qc.invalidateQueries({ queryKey: PROFILE_KEY });
-      qc.invalidateQueries({ queryKey: TEAM_KEY });
-    },
   });
+
+  return {
+    ...mutation,
+    optimisticUpdate,
+  };
 }
 
 // Toggle completion on a boolean habit
@@ -106,6 +133,20 @@ export function useToggleHabit() {
       qc.invalidateQueries({ queryKey: HABITS_KEY });
       qc.invalidateQueries({ queryKey: PROFILE_KEY });
       qc.invalidateQueries({ queryKey: TEAM_KEY });
+    },
+  });
+}
+
+// Stop repeating a recurring habit schedule
+export function useStopRepeatingHabit(onSuccess?: () => void) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.stopRepeatingHabit(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: HABITS_KEY });
+      qc.invalidateQueries({ queryKey: PROFILE_KEY });
+      qc.invalidateQueries({ queryKey: TEAM_KEY });
+      onSuccess?.();
     },
   });
 }

@@ -2,14 +2,10 @@ import { Elysia, t } from 'elysia';
 import { requireAuth } from '@/lib/api/auth';
 import { db } from '@/lib/db';
 import { habits, categories, habitLogs, users, teamEvents } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNotNull, isNull } from 'drizzle-orm';
 import { formatLocalDate } from '@/lib/utils/formatters';
+import { normalizeDate } from '@/lib/services/streak';
 
-function toDateString(d: unknown): string {
-  if (typeof d === 'string') return d.split('T')[0];
-  if (d instanceof Date) return formatLocalDate(d);
-  return String(d || '');
-}
 
 const habitBodySchema = t.Object({
   title: t.String({ minLength: 1 }),
@@ -32,8 +28,68 @@ export const habitsRoutes = new Elysia()
   /*
   GET /api/v1/habits
   Fetches all habits owned by the authenticated user, joined with their category names.
+  Auto-spawns scheduled recurring habits if today matches their repeat schedule.
   */
-  .get('/habits', async ({ user }) => {
+  .get('/habits', async ({ user, headers }) => {
+    const clientDate = (headers['x-client-date'] as string) || normalizeDate(new Date());
+
+    // 1. Auto-spawn recurring habits for clientDate if scheduled
+    const recurringHabits = await db
+      .select()
+      .from(habits)
+      .where(and(eq(habits.userId, user.id), isNotNull(habits.scheduledDays)));
+
+    if (recurringHabits.length > 0) {
+      const [y, m, dayNum] = clientDate.split('-').map(Number);
+      const dayIndex = new Date(Date.UTC(y, m - 1, dayNum)).getUTCDay();
+      const DAY_KEYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+      const currentDayKey = DAY_KEYS[dayIndex];
+
+      // Deduplicate recurring blueprints by title and categoryId (keep latest)
+      const uniqueRecurring = new Map<string, typeof recurringHabits[0]>();
+      for (const rh of recurringHabits) {
+        const key = `${rh.title.trim().toLowerCase()}:::${rh.categoryId}`;
+        if (!uniqueRecurring.has(key)) {
+          uniqueRecurring.set(key, rh);
+        }
+      }
+
+      // Query habits already existing on clientDate
+      const existingToday = await db
+        .select({ title: habits.title, categoryId: habits.categoryId })
+        .from(habits)
+        .where(and(eq(habits.userId, user.id), eq(habits.date, clientDate)));
+
+      const existingKeys = new Set(
+        existingToday.map(h => `${h.title.trim().toLowerCase()}:::${h.categoryId}`)
+      );
+
+      for (const [key, rh] of uniqueRecurring.entries()) {
+        try {
+          const days: string[] = rh.scheduledDays ? JSON.parse(rh.scheduledDays) : [];
+          if (Array.isArray(days) && days.includes(currentDayKey) && !existingKeys.has(key)) {
+            // Spawn instance for clientDate
+            await db.insert(habits).values({
+              userId: user.id,
+              title: rh.title,
+              categoryId: rh.categoryId,
+              date: clientDate,
+              deadlineTime: rh.deadlineTime,
+              habitType: rh.habitType,
+              targetValue: rh.targetValue,
+              currentValue: 0,
+              unit: rh.unit,
+              scheduledDays: rh.scheduledDays,
+              isActive: true,
+            });
+            existingKeys.add(key);
+          }
+        } catch (err) {
+          console.error('[Habits] Failed to parse scheduledDays or spawn repeating habit:', err);
+        }
+      }
+    }
+
     const result = await db
       .select({
         id: habits.id,
@@ -56,7 +112,7 @@ export const habitsRoutes = new Elysia()
       id: h.id,
       title: h.title,
       category: h.category,
-      date: toDateString(h.date),
+      date: normalizeDate(h.date),
       deadlineTime: h.deadlineTime,
       habitType: (h.habitType || 'boolean') as 'boolean' | 'numeric',
       targetValue: h.targetValue,
@@ -231,7 +287,7 @@ export const habitsRoutes = new Elysia()
     }).where(eq(habits.id, habit.id)).returning().then(res => res[0]);
     
     // Sync with habitLogs historical ledger for THIS DAY only
-    const habitDateStr = toDateString(habit.date);
+    const habitDateStr = normalizeDate(habit.date);
     
     if (isCompleted) {
       const existingLog = await db.select().from(habitLogs)
@@ -314,7 +370,7 @@ export const habitsRoutes = new Elysia()
       currentValue: updatedCurrentValue
     }).where(eq(habits.id, habit.id));
     
-    const habitDateStr = toDateString(habit.date);
+    const habitDateStr = normalizeDate(habit.date);
     
     if (isNowCompleted) {
       const existingLog = await db.select().from(habitLogs)
@@ -355,6 +411,37 @@ export const habitsRoutes = new Elysia()
     })
   })
   
+  /*
+  PATCH /api/v1/habits/:id/stop-repeating
+  Removes recurrence (scheduledDays) from this habit and all instances of the same series.
+  */
+  .patch('/habits/:id/stop-repeating', async ({ user, params, set }) => {
+    const habit = await db.select().from(habits).where(and(eq(habits.id, params.id), eq(habits.userId, user.id))).limit(1).then(res => res[0]);
+    if (!habit) {
+      set.status = 404;
+      return { success: false, error: 'Not found' };
+    }
+
+    // Clear scheduledDays for this habit and any matching series for this user
+    const categoryCondition = habit.categoryId
+      ? eq(habits.categoryId, habit.categoryId)
+      : isNull(habits.categoryId);
+
+    await db.update(habits).set({
+      scheduledDays: null,
+    }).where(and(
+      eq(habits.userId, user.id),
+      eq(habits.title, habit.title),
+      categoryCondition
+    ));
+
+    return { success: true };
+  }, {
+    params: t.Object({
+      id: t.String({ minLength: 1 })
+    })
+  })
+
   /*
   DELETE /api/v1/habits/:id
   Permanently removes a habit and cascades deletion of its history logs.

@@ -3,8 +3,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { ThemeProvider } from 'next-themes'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PwaProvider } from '@/components/pwa/pwa-provider'
+import { formatLocalDate } from '@/lib/utils/formatters'
 
 /*
 In React 19 / Next.js 16, next-themes renders an inline <script> to detect system theme
@@ -23,7 +24,18 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 export default function Providers({ children }: { children: React.ReactNode }) {
+  // Sync client localized date cookie for Server Components (e.g. Profile SSR)
+  useEffect(() => {
+    try {
+      const todayStr = formatLocalDate(new Date());
+      document.cookie = `x-client-date=${todayStr}; path=/; max-age=86400; SameSite=Lax`;
+    } catch {
+      // Ignore in non-browser environments
+    }
+  }, []);
+
   // We use useState to ensure the QueryClient is only initialized once per session.
+
   // This prevents the cache from being thrown away if React suspends or re-renders.
   const [queryClient] = useState(
     () =>

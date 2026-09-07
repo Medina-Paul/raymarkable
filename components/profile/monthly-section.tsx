@@ -120,19 +120,18 @@ export function MonthlySection({
     };
   }, [calendarData, monthPrefix]);
 
-  // --- HABIT PROGRESS (GROUPED BY CATEGORY WITH VOLUME) ---
+  // --- CATEGORY PROGRESS (STANDARDIZED COMPLETION RATE) ---
   const habitProgress = useMemo(() => {
-    const stats: Record<string, { completed: number; total: number; volume: number; unit?: string }> = {};
+    const stats: Record<string, { completed: number; total: number }> = {};
 
     monthHabits.forEach((h) => {
       const category = h.category || "Uncategorized";
       if (!stats[category]) {
-        stats[category] = { completed: 0, total: 0, volume: 0, unit: h.unit || undefined };
+        stats[category] = { completed: 0, total: 0 };
       }
       stats[category].total += 1;
       if (!h.isActive) {
         stats[category].completed += 1;
-        stats[category].volume += h.currentValue || h.targetValue || 1;
       }
     });
 
@@ -143,8 +142,6 @@ export function MonthlySection({
           name,
           completed: stat.completed,
           total: stat.total,
-          volume: stat.volume,
-          unit: stat.unit,
           percent: pct,
         };
       })
@@ -305,30 +302,26 @@ export function MonthlySection({
         <div className="bg-white dark:bg-zinc-900 p-6 border border-gray-200 dark:border-zinc-800">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-sm font-bold text-black dark:text-white uppercase tracking-wide">
-              Habit Progress ({monthName} {displayYear})
+              Category Progress ({monthName} {displayYear})
             </h3>
           </div>
           <div className="space-y-1">
             {habitProgress.length === 0 && (
               <p className="text-sm text-gray-400 dark:text-zinc-500 py-4 text-center">No habits recorded for {monthName} {displayYear}.</p>
             )}
-            {habitProgress.map((habit) => {
+            {habitProgress.map((category) => {
               return (
-                <div key={habit.name} className="relative w-full h-8 bg-zinc-800 flex items-center overflow-hidden">
+                <div key={category.name} className="relative w-full h-8 bg-zinc-800 flex items-center overflow-hidden">
                   <div 
                     className="absolute top-0 left-0 h-full bg-green-700 transition-all duration-500 ease-out" 
-                    style={{ width: `${Math.min(100, habit.percent)}%` }}
+                    style={{ width: `${Math.min(100, category.percent)}%` }}
                   />
                   <div className="relative z-10 w-full flex justify-between items-center px-3">
                     <span className="text-sm font-semibold text-white truncate pr-4">
-                      {habit.name}
+                      {category.name}
                     </span>
                     <span className="text-xs font-medium text-zinc-300 shrink-0 font-mono">
-                      {habit.unit && habit.volume > 0 ? (
-                        <span>{habit.volume.toLocaleString()} {habit.unit} • {habit.completed}/{habit.total} ({habit.percent}%)</span>
-                      ) : (
-                        <span>{habit.completed}/{habit.total} ({habit.percent}%)</span>
-                      )}
+                      {category.completed}/{category.total} ({category.percent}%)
                     </span>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { MoreVertical, Check, X, Plus, Minus, Clock } from "lucide-react";
 import type { Habit } from "@/lib/types/habit";
 import { useUpdateHabitProgress } from "@/lib/hooks/use-habits";
@@ -12,12 +12,37 @@ type Props = {
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onStopRepeating?: () => void;
 };
 
-export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
+export function HabitItem({ habit, onToggle, onEdit, onDelete, onStopRepeating }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false));
   const updateProgress = useUpdateHabitProgress();
+
+  const [localVal, setLocalVal] = useState<number | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingValueRef = useRef<number | null>(null);
+
+  // Sync local state when habit changes from external update
+  useEffect(() => {
+    if (pendingValueRef.current === null) {
+      setLocalVal(null);
+    }
+  }, [habit.currentValue]);
+
+  // Clean up debounce timer on unmount and flush pending updates
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        if (pendingValueRef.current !== null) {
+          updateProgress.mutate({ id: habit.id, value: pendingValueRef.current });
+          pendingValueRef.current = null;
+        }
+      }
+    };
+  }, [habit.id]);
 
   // Determine status with 48-hour grace period
   const [now, setNow] = useState(() => new Date());
@@ -43,7 +68,7 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
 
   const isNumeric = habit.habitType === "numeric";
   const target = habit.targetValue || 1;
-  const current = habit.currentValue || 0;
+  const current = localVal !== null ? localVal : (habit.currentValue || 0);
   const percentage = Math.round((current / target) * 100);
   const isOverachieved = current > target;
   const isAccomplished = habit.completed || (isNumeric && current >= target);
@@ -82,43 +107,68 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete }: Props) {
 
   const handleStep = (delta: number) => {
     if (isMissed) return;
-    updateProgress.mutate({ id: habit.id, delta });
+    const baseVal = pendingValueRef.current !== null 
+      ? pendingValueRef.current 
+      : (localVal !== null ? localVal : (habit.currentValue || 0));
+    const nextVal = Math.max(0, baseVal + delta);
+    
+    setLocalVal(nextVal);
+    pendingValueRef.current = nextVal;
+
+    // Instantly update React Query cache so other components on page see it
+    updateProgress.optimisticUpdate(habit.id, nextVal);
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      const finalVal = pendingValueRef.current;
+      pendingValueRef.current = null;
+      if (finalVal !== null) {
+        updateProgress.mutate({ id: habit.id, value: finalVal });
+      }
+    }, 300);
   };
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 px-3 sm:px-4 border-b border-gray-200 dark:border-zinc-800 last:border-0 hover:bg-gray-50/70 dark:hover:bg-zinc-800/50 transition-colors bg-white dark:bg-zinc-900 gap-2.5 sm:gap-3">
       {/* Left: options + habit title info */}
       <div className="flex items-start sm:items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        {isPending ? (
-          <div ref={ref} className="relative shrink-0 mt-0.5 sm:mt-0">
-            <button
-              onClick={() => setOpen(!open)}
-              aria-label="Options"
-              className="p-1 -ml-1 sm:ml-0 text-gray-400 dark:text-zinc-500 hover:text-black dark:hover:text-white focus:outline-none transition-colors cursor-pointer"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
+        <div ref={ref} className="relative shrink-0 mt-0.5 sm:mt-0">
+          <button
+            onClick={() => setOpen(!open)}
+            aria-label="Options"
+            className="p-1 -ml-1 sm:ml-0 text-gray-400 dark:text-zinc-500 hover:text-black dark:hover:text-white focus:outline-none transition-colors cursor-pointer"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
 
-            {open && (
-              <div className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 z-20 py-1 shadow-sm animate-in fade-in slide-in-from-top-1 duration-150">
+          {open && (
+            <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 z-20 py-1 shadow-sm animate-in fade-in slide-in-from-top-1 duration-150">
+              <button
+                onClick={() => { setOpen(false); onEdit(); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                Edit
+              </button>
+              {habit.scheduledDays && habit.scheduledDays.length > 0 && onStopRepeating && (
                 <button
-                  onClick={() => { setOpen(false); onEdit(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  onClick={() => { setOpen(false); onStopRepeating(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors cursor-pointer"
                 >
-                  Edit
+                  Stop Repeating
                 </button>
-                <button
-                  onClick={() => { setOpen(false); onDelete(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
-                >
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="w-5 sm:w-6 shrink-0" />
-        )}
+              )}
+              <button
+                onClick={() => { setOpen(false); onDelete(); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">

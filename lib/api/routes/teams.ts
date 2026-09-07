@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { requireAuth } from '@/lib/api/auth';
 import { db } from '@/lib/db';
 import { users, teams, teamEvents, habitLogs, habits, notifications } from '@/lib/db/schema';
-import { eq, and, inArray, gte } from 'drizzle-orm';
+import { eq, and, inArray, gte, desc } from 'drizzle-orm';
 import { sendWebPush } from '@/lib/push';
 import { calculateStreaks, normalizeDate } from '@/lib/services/streak';
 import { MAX_NUDGES_PER_MINUTE, NUDGE_WINDOW_MS, GRACE_PERIOD_HOURS, MAX_TEAM_MEMBERS } from '@/lib/constants';
@@ -162,8 +162,11 @@ export const teamsRoutes = new Elysia()
     }).from(teamEvents)
       .innerJoin(users, eq(teamEvents.actorId, users.id))
       .where(eq(teamEvents.teamId, team.id))
-      .orderBy(teamEvents.createdAt)
+      .orderBy(desc(teamEvents.createdAt))
       .limit(50);
+
+    // Reverse to display chronologically (oldest at top, newest at bottom)
+    events.reverse();
       
     return { team, members, events, currentUserId: user.id };
   })

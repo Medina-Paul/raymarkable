@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { STORAGE_KEYS } from "@/lib/constants";
+import { QUERY_KEYS } from "@/lib/api/query-keys";
 
 interface CustomAudioWindow {
   AudioContext?: typeof AudioContext;
@@ -69,7 +70,7 @@ export function NotificationsListener() {
         { event: "INSERT", schema: "public", table: "notifications" },
         () => {
           // Instantly refresh notifications when a new one is pushed from the DB
-          queryClient.invalidateQueries({ queryKey: ["notifications"] });
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications.all });
         }
       )
       .on(
@@ -77,10 +78,14 @@ export function NotificationsListener() {
         { event: "INSERT", schema: "public", table: "team_events" },
         () => {
           // Instantly refresh the team activity feed when a teammate logs an event
-          queryClient.invalidateQueries({ queryKey: ["team", "me"] });
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.teams.me });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[Supabase Realtime] Channel status:", status);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

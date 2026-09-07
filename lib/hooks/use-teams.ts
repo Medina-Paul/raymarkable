@@ -26,8 +26,9 @@ export function useMyTeam() {
   return useQuery<TeamData>({
     queryKey: QUERY_KEYS.teams.me,
     queryFn: fetchMyTeam,
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 5 * 1000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 10 * 1000, // 10-second polling fallback to ensure live activity stays fresh
   });
 }
 

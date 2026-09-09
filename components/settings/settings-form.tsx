@@ -5,6 +5,7 @@ import { useMounted } from "@/lib/hooks/use-mounted";
 import Image from "next/image";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Target,
   Palette,
@@ -19,6 +20,7 @@ import {
   BellRing,
   Volume2,
   VolumeX,
+  Shield,
   AlertTriangle,
   Trash2,
 } from "lucide-react";
@@ -312,7 +314,37 @@ export function SettingsForm({ initialThreshold }: { initialThreshold: number })
         </div>
       </section>
 
-      {/* 5. Delete Account */}
+      {/* 5. Legal & Policies */}
+      <section>
+        <div className="flex items-center gap-2 mb-6">
+          <Shield className="w-5 h-5 text-gray-500 dark:text-zinc-400" />
+          <h2 className="text-lg font-bold text-black dark:text-white">Legal & Privacy</h2>
+        </div>
+
+        <div className="space-y-3 max-w-md">
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
+            Review how Raymarkable protects your account, habit records, and data privacy.
+          </p>
+
+          <div className="flex items-center gap-4 text-xs font-bold pt-1">
+            <Link
+              href="/privacy"
+              className="text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white underline underline-offset-4 decoration-1 hover:decoration-2 transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-gray-300 dark:text-zinc-700">•</span>
+            <Link
+              href="/terms"
+              className="text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white underline underline-offset-4 decoration-1 hover:decoration-2 transition-colors"
+            >
+              Terms of Service
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Delete Account */}
       <section>
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />

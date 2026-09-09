@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 
@@ -78,16 +79,34 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Mobile Quote (Visible on mobile/tablet only) */}
-        <div className="lg:hidden pt-6 border-t border-zinc-200 dark:border-zinc-800">
-          <blockquote className="space-y-1">
-            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 italic">
-              &ldquo;Habits are the compound interest of self-improvement.&rdquo;
-            </p>
-            <footer className="text-xs text-zinc-500 dark:text-zinc-400">
-              — James Clear
-            </footer>
-          </blockquote>
+        {/* Footer Area: Quote & Legal links */}
+        <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 space-y-4">
+          <div className="lg:hidden">
+            <blockquote className="space-y-1">
+              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 italic">
+                &ldquo;Habits are the compound interest of self-improvement.&rdquo;
+              </p>
+              <footer className="text-xs text-zinc-500 dark:text-zinc-400">
+                — James Clear
+              </footer>
+            </blockquote>
+          </div>
+
+          <div className="flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500">
+            <Link
+              href="/privacy"
+              className="hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link
+              href="/terms"
+              className="hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+            >
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
 

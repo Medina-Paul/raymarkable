@@ -2,7 +2,7 @@
  * CLIENT SDK: TEAMS & NOTIFICATIONS
  */
 
-import type { TeamData } from "@/lib/types/team";
+import type { TeamData, TeamSummary } from "@/lib/types/team";
 import type { Notification } from "@/lib/types/notification";
 import { formatLocalDate } from "@/lib/utils/formatters";
 
@@ -25,16 +25,32 @@ async function parseError(res: Response, fallback: string): Promise<string> {
   }
 }
 
-export async function fetchMyTeam(): Promise<TeamData> {
-  const res = await fetch(`${API_BASE}/teams/me`, {
+export async function fetchMyTeams(): Promise<TeamSummary[]> {
+  const res = await fetch(`${API_BASE}/teams`, {
     headers: getClientHeaders(),
   });
-  if (!res.ok) throw new Error(await parseError(res, "Failed to fetch team"));
+  if (!res.ok) throw new Error(await parseError(res, "Failed to fetch teams"));
   return res.json();
 }
 
+export async function fetchTeamDetails(teamId: string): Promise<TeamData> {
+  const res = await fetch(`${API_BASE}/teams/${teamId}`, {
+    headers: getClientHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Failed to fetch team details"));
+  return res.json();
+}
 
-export async function createTeam(name: string): Promise<{ success: boolean; team: unknown }> {
+// Backwards compatibility alias
+export async function fetchMyTeam(): Promise<TeamData> {
+  const teams = await fetchMyTeams();
+  if (teams.length === 0) {
+    return { team: null, members: [], events: [], currentUserId: null };
+  }
+  return fetchTeamDetails(teams[0].id);
+}
+
+export async function createTeam(name: string): Promise<{ success: boolean; team: TeamSummary }> {
   const res = await fetch(`${API_BASE}/teams`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -44,7 +60,7 @@ export async function createTeam(name: string): Promise<{ success: boolean; team
   return res.json();
 }
 
-export async function joinTeam(teamId: string): Promise<{ success: boolean; team: unknown }> {
+export async function joinTeam(teamId: string): Promise<{ success: boolean; teamId?: string }> {
   const res = await fetch(`${API_BASE}/teams/join`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -54,14 +70,14 @@ export async function joinTeam(teamId: string): Promise<{ success: boolean; team
   return res.json();
 }
 
-export async function leaveTeam(): Promise<{ success: boolean; message: string }> {
-  const res = await fetch(`${API_BASE}/teams/leave`, { method: "POST" });
+export async function leaveTeam(teamId: string): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(`${API_BASE}/teams/${teamId}/leave`, { method: "POST" });
   if (!res.ok) throw new Error(await parseError(res, "Failed to leave team"));
   return res.json();
 }
 
-export async function removeTeamMember(targetId: string): Promise<{ success: boolean; message: string }> {
-  const res = await fetch(`${API_BASE}/teams/remove-member`, {
+export async function removeTeamMember(teamId: string, targetId: string): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(`${API_BASE}/teams/${teamId}/remove-member`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ targetId }),
@@ -70,8 +86,8 @@ export async function removeTeamMember(targetId: string): Promise<{ success: boo
   return res.json();
 }
 
-export async function nudgeTeammate(targetId: string, taskTitle: string): Promise<{ success: boolean }> {
-  const res = await fetch(`${API_BASE}/teams/nudge`, {
+export async function nudgeTeammate(teamId: string, targetId: string, taskTitle: string): Promise<{ success: boolean }> {
+  const res = await fetch(`${API_BASE}/teams/${teamId}/nudge`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ targetId, taskTitle }),
@@ -96,3 +112,4 @@ export async function readNotification(id: string): Promise<{ success: boolean }
   if (!res.ok) throw new Error("Failed to read notification");
   return res.json();
 }
+

@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/api/query-keys";
 import {
+  fetchMyTeams,
+  fetchTeamDetails,
   fetchMyTeam,
   createTeam,
   joinTeam,
@@ -10,25 +12,45 @@ import {
   fetchNotifications,
   readNotification,
 } from "@/lib/api/teams";
-import type { TeamData, TeamMember, TeamEvent, User } from "@/lib/types/team";
+import type { TeamData, TeamMember, TeamEvent, TeamSummary, User } from "@/lib/types/team";
 import type { Notification } from "@/lib/types/notification";
 
 // Re-export types for consumers
-export type { TeamData, TeamMember, TeamEvent, User, Notification };
+export type { TeamData, TeamMember, TeamEvent, TeamSummary, User, Notification };
 
 /*
 TANSTACK REACT QUERY HOOKS FOR TEAMS & NOTIFICATIONS
-Manages team roster queries, joining/leaving pods, social nudges, and live unread notifications.
+Manages multi-team roster queries, joining/leaving pods, social nudges, and live unread notifications.
 */
 
-// Fetch current user's team, members, pending tasks, and live activity feed
+// Fetch all pods the current user belongs to (for overview grid)
+export function useMyTeams() {
+  return useQuery<TeamSummary[]>({
+    queryKey: QUERY_KEYS.teams.all,
+    queryFn: fetchMyTeams,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+// Fetch single team details, roster, pending tasks, and live feed
+export function useTeamDetails(teamId: string) {
+  return useQuery<TeamData>({
+    queryKey: QUERY_KEYS.teams.detail(teamId),
+    queryFn: () => fetchTeamDetails(teamId),
+    enabled: !!teamId,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+// Backwards compatibility hook
 export function useMyTeam() {
   return useQuery<TeamData>({
     queryKey: QUERY_KEYS.teams.me,
     queryFn: fetchMyTeam,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
-    refetchInterval: false,
   });
 }
 
@@ -37,7 +59,9 @@ export function useCreateTeam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => createTeam(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.me }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.all });
+    },
   });
 }
 
@@ -46,16 +70,21 @@ export function useJoinTeam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (teamId: string) => joinTeam(teamId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.me }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.all });
+    },
   });
 }
 
-// Leave the current team
+// Leave a specific team
 export function useLeaveTeam() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: leaveTeam,
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.me }),
+    mutationFn: (teamId: string) => leaveTeam(teamId),
+    onSuccess: (_data, teamId) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.all });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.detail(teamId) });
+    },
   });
 }
 
@@ -63,8 +92,12 @@ export function useLeaveTeam() {
 export function useRemoveMember() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (targetId: string) => removeTeamMember(targetId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.me }),
+    mutationFn: ({ teamId, targetId }: { teamId: string; targetId: string }) =>
+      removeTeamMember(teamId, targetId),
+    onSuccess: (_data, { teamId }) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.all });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.detail(teamId) });
+    },
   });
 }
 
@@ -72,9 +105,18 @@ export function useRemoveMember() {
 export function useNudgeTeammate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ targetId, taskTitle }: { targetId: string; taskTitle: string }) =>
-      nudgeTeammate(targetId, taskTitle),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.me }),
+    mutationFn: ({
+      teamId,
+      targetId,
+      taskTitle,
+    }: {
+      teamId: string;
+      targetId: string;
+      taskTitle: string;
+    }) => nudgeTeammate(teamId, targetId, taskTitle),
+    onSuccess: (_data, { teamId }) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.teams.detail(teamId) });
+    },
   });
 }
 
@@ -86,8 +128,8 @@ export function useNotifications() {
   return useQuery<Notification[]>({
     queryKey: QUERY_KEYS.notifications.all,
     queryFn: fetchNotifications,
-    staleTime: 60 * 1000, // 1 minute cache (Supabase Realtime handles instant invalidation)
-    refetchInterval: false, // Turn off continuous background HTTP polling
+    staleTime: 60 * 1000,
+    refetchInterval: false,
   });
 }
 
@@ -99,3 +141,4 @@ export function useReadNotification() {
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.notifications.all }),
   });
 }
+

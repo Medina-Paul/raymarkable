@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCreateTeam, useJoinTeam } from "@/lib/hooks/use-teams";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -14,14 +15,22 @@ Allows users to either create a new pod or join an existing one using an invite 
 export function NoTeamView() {
   const [teamName, setTeamName] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const router = useRouter();
 
   const createMutation = useCreateTeam();
   const joinMutation = useJoinTeam();
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (teamName.trim()) {
-      createMutation.mutate(teamName.trim(), {
+    const trimmed = teamName.trim();
+    if (trimmed) {
+      createMutation.mutate(trimmed, {
+        onSuccess: (res) => {
+          toast.success(`Pod '${trimmed}' created!`);
+          if (res.team?.id) {
+            router.push(`/dashboard/teams/${res.team.id}`);
+          }
+        },
         onError: (err: Error) => toast.error(err.message || "Failed to create team"),
       });
     }
@@ -29,8 +38,14 @@ export function NoTeamView() {
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (joinCode.trim()) {
-      joinMutation.mutate(joinCode.trim(), {
+    const trimmed = joinCode.trim();
+    if (trimmed) {
+      joinMutation.mutate(trimmed, {
+        onSuccess: (res) => {
+          toast.success("Joined team successfully!");
+          const targetId = res?.teamId || trimmed;
+          router.push(`/dashboard/teams/${targetId}`);
+        },
         onError: (err: Error) => toast.error(err.message || "Failed to join team"),
       });
     }

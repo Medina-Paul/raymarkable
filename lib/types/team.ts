@@ -31,8 +31,22 @@ export type TeamEvent = {
   };
 };
 
+export type TeamSummary = {
+  id: string;
+  name: string;
+  createdBy: string;
+  isLeader: boolean;
+  memberCount: number;
+  members: Array<{
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+  }>;
+  createdAt: string;
+};
+
 export type TeamData = {
-  team: { id: string; name: string; createdBy: string } | null;
+  team: { id: string; name: string; createdBy: string; isLeader?: boolean } | null;
   members: TeamMember[];
   events: TeamEvent[];
   currentUserId: string | null;

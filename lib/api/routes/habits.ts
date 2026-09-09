@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { requireAuth } from '@/lib/api/auth';
 import { db } from '@/lib/db';
-import { habits, categories, habitLogs, users, teamEvents } from '@/lib/db/schema';
+import { habits, categories, habitLogs, users, teamEvents, teamMembers } from '@/lib/db/schema';
 import { eq, and, isNotNull, isNull } from 'drizzle-orm';
 import { formatLocalDate } from '@/lib/utils/formatters';
 import { normalizeDate } from '@/lib/services/streak';
@@ -307,15 +307,19 @@ export const habitsRoutes = new Elysia()
         });
       }
       
-      // If user achieved target completion and is in a team, broadcast social celebration event
+      // If user achieved target completion and is in teams, broadcast social celebration event to all user's pods
       if (!wasCompleted) {
-        const currentUser = await db.select({ teamId: users.teamId }).from(users).where(eq(users.id, user.id)).limit(1).then(res => res[0]);
-        if (currentUser?.teamId) {
+        const userMemberships = await db
+          .select({ teamId: teamMembers.teamId })
+          .from(teamMembers)
+          .where(eq(teamMembers.userId, user.id));
+
+        for (const m of userMemberships) {
           await db.insert(teamEvents).values({
-            teamId: currentUser.teamId,
+            teamId: m.teamId,
             eventType: 'COMPLETION',
             actorId: user.id,
-            message: `completed '${habit.title}' (${newVal}/${target} ${habit.unit || 'units'})`
+            message: `completed '${habit.title}' (${newVal}/${target} ${habit.unit || 'units'})`,
           });
         }
       }
@@ -390,19 +394,24 @@ export const habitsRoutes = new Elysia()
         });
       }
       
-      const currentUser = await db.select({ teamId: users.teamId }).from(users).where(eq(users.id, user.id)).limit(1).then(res => res[0]);
-      if (currentUser?.teamId) {
+      const userMemberships = await db
+        .select({ teamId: teamMembers.teamId })
+        .from(teamMembers)
+        .where(eq(teamMembers.userId, user.id));
+
+      for (const m of userMemberships) {
         await db.insert(teamEvents).values({
-          teamId: currentUser.teamId,
+          teamId: m.teamId,
           eventType: 'COMPLETION',
           actorId: user.id,
-          message: `completed '${habit.title}'`
+          message: `completed '${habit.title}'`,
         });
       }
     } else {
       // ONLY delete the log for this specific date!
       await db.delete(habitLogs).where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.completedDate, habitDateStr)));
     }
+
     
     return { success: true };
   }, {

@@ -1,29 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { useMyTeam, useLeaveTeam, useRemoveMember } from "@/lib/hooks/use-teams";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { Users, LogOut, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { useMyTeams } from "@/lib/hooks/use-teams";
+import { Plus, UserPlus, Users, Loader2 } from "lucide-react";
 import { NoTeamView } from "@/components/teams/no-team-view";
-import { TeamCodeWidget } from "@/components/teams/team-code-widget";
-import { TeamActivityFeed } from "@/components/teams/team-activity-feed";
-import { TeamRoster } from "@/components/teams/team-roster";
+import { TeamCard } from "@/components/teams/team-card";
+import { CreateTeamModal } from "@/components/teams/create-team-modal";
+import { JoinTeamModal } from "@/components/teams/join-team-modal";
+import { MAX_TEAMS_PER_USER } from "@/lib/constants";
 
 /*
-TEAMS PAGE (POD DASHBOARD)
-Orchestrates the team experience:
-1. Displays the Onboarding / Join flow if the user has no team.
-2. Displays the Team Hub (Activity Feed + Roster + Nudges) if active in a pod.
+TEAMS OVERVIEW PAGE
+Displays the user's accountability pods in a responsive grid.
+Allows creating new pods or joining existing pods via invite code (up to 10 max).
 */
 
 export default function TeamsPage() {
-  const { data, isLoading } = useMyTeam();
-  const leaveMutation = useLeaveTeam();
-  const removeMutation = useRemoveMember();
-
-  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
-  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const { data: teams, isLoading } = useMyTeams();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
 
   // Loading State
   if (isLoading) {
@@ -34,101 +29,82 @@ export default function TeamsPage() {
     );
   }
 
-  const { team, members, events, currentUserId } = data || {
-    team: null,
-    members: [],
-    events: [],
-    currentUserId: null,
-  };
+  const teamList = teams || [];
 
-  // State 1: User has no team
-  if (!team) {
+  // State 1: User has no teams yet
+  if (teamList.length === 0) {
     return <NoTeamView />;
   }
 
-  // State 2: User is in a team
+  const isAtLimit = teamList.length >= MAX_TEAMS_PER_USER;
+
+  // State 2: User has 1 or more teams
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto lg:h-full flex flex-col">
-      {/* Header */}
-      <header className="mb-8 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white truncate">
-            {team.name}
-          </h1>
-          <button
-            onClick={() => setIsLeaveModalOpen(true)}
-            disabled={leaveMutation.isPending}
-            className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 border border-transparent hover:border-red-200 dark:hover:border-red-900/40"
-          >
-            <LogOut className="w-4 h-4" /> Leave Team
-          </button>
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+      {/* Header & Controls */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-gray-200 dark:border-zinc-800">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+              Accountability Pods
+            </h1>
+            <span className="px-2.5 py-1 text-xs font-semibold bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 border border-gray-200 dark:border-zinc-700">
+              {teamList.length} / {MAX_TEAMS_PER_USER} Pods
+            </span>
+          </div>
+          <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">
+            Track daily habits and hold each other accountable across your teams.
+          </p>
         </div>
 
-        <div className="space-y-2">
-          <div className="text-gray-500 dark:text-zinc-400 mt-1 flex items-center gap-2 flex-wrap text-sm">
-            <span className="flex items-center gap-1.5">
-              <Users className="w-4 h-4" /> {members.length} / 5 Members
-            </span>
-            <span className="text-gray-300 dark:text-zinc-700">•</span>
-            <TeamCodeWidget teamId={team.id} />
-          </div>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => setIsJoinOpen(true)}
+            disabled={isAtLimit}
+            className="px-3.5 py-2 text-xs md:text-sm font-semibold border border-gray-200 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-800 dark:text-zinc-200 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isAtLimit ? `Max ${MAX_TEAMS_PER_USER} pods reached` : undefined}
+          >
+            <UserPlus className="w-4 h-4" /> Join with Code
+          </button>
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            disabled={isAtLimit}
+            className="bg-black dark:bg-white text-white dark:text-black font-semibold px-4 py-2 text-xs md:text-sm hover:bg-gray-800 dark:hover:bg-zinc-200 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isAtLimit ? `Max ${MAX_TEAMS_PER_USER} pods reached` : undefined}
+          >
+            <Plus className="w-4 h-4" /> Create Pod
+          </button>
         </div>
       </header>
 
-      {/* Main Grid: Activity Feed & Team Roster */}
-      <div className="grid lg:grid-cols-5 gap-8 lg:flex-1 lg:min-h-0 min-w-0">
-        <TeamActivityFeed events={events} />
-        <TeamRoster
-          members={members}
-          leaderId={team.createdBy}
-          currentUserId={currentUserId}
-          onRemoveMember={setMemberToRemove}
-        />
+      {/* Teams Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {teamList.map((team) => (
+          <TeamCard key={team.id} team={team} />
+        ))}
+
+        {/* Quick Add Card (if under limit) */}
+        {!isAtLimit && (
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 dark:border-zinc-800 hover:border-black dark:hover:border-white transition-all text-gray-400 dark:text-zinc-500 hover:text-black dark:hover:text-white group cursor-pointer min-h-[170px]"
+          >
+            <div className="w-10 h-10 flex items-center justify-center mb-3">
+              <Plus className="w-5 h-5" />
+            </div>
+            <span className="font-semibold text-sm">Create Another Pod</span>
+            <span className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+              Up to {MAX_TEAMS_PER_USER - teamList.length} more
+            </span>
+          </button>
+        )}
       </div>
 
-      {/* Leave Team Modal */}
-      <ConfirmModal
-        isOpen={isLeaveModalOpen}
-        onClose={() => setIsLeaveModalOpen(false)}
-        onConfirm={async () => {
-          try {
-            await leaveMutation.mutateAsync();
-            toast.success("Left the team.");
-            setIsLeaveModalOpen(false);
-          } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "Failed to leave team.";
-            toast.error(message);
-          }
-        }}
-        title="Leave Team"
-        description="Are you sure you want to leave this accountability team? You will lose access to team activities and streak contributions."
-        confirmText="Leave Team"
-        variant="danger"
-        isLoading={leaveMutation.isPending}
-      />
-
-      {/* Remove Member Modal (Leader Only) */}
-      <ConfirmModal
-        isOpen={!!memberToRemove}
-        onClose={() => setMemberToRemove(null)}
-        onConfirm={async () => {
-          if (memberToRemove) {
-            try {
-              await removeMutation.mutateAsync(memberToRemove.id);
-              toast.success(`${memberToRemove.name} was removed from the team.`);
-              setMemberToRemove(null);
-            } catch (err: unknown) {
-              const message = err instanceof Error ? err.message : "Failed to remove member.";
-              toast.error(message);
-            }
-          }
-        }}
-        title="Remove Member"
-        description={`Are you sure you want to remove ${memberToRemove?.name} from the team? They will lose access to the team dashboard and their active streaks will no longer contribute to the pod.`}
-        confirmText="Remove Member"
-        variant="danger"
-        isLoading={removeMutation.isPending}
-      />
+      {/* Modals */}
+      <CreateTeamModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      <JoinTeamModal isOpen={isJoinOpen} onClose={() => setIsJoinOpen(false)} />
     </div>
   );
 }
+

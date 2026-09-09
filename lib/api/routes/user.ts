@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { requireAuth } from '@/lib/api/auth';
 import { db } from '@/lib/db';
-import { habits, habitLogs, users, teams } from '@/lib/db/schema';
+import { habits, habitLogs, users, teams, teamMembers } from '@/lib/db/schema';
 import { eq, and, ne, desc } from 'drizzle-orm';
 import { calculateStreaks, normalizeDate } from '@/lib/services/streak';
 import { createClient } from '@/lib/supabase/server';
@@ -118,21 +118,38 @@ export const userRoutes = new Elysia()
       return { success: false, error: 'User not found' };
     }
 
-    // If the user belongs to a team, handle team cleanup or leader succession
-    if (currentUser.teamId) {
+    // If the user belongs to any teams, handle team cleanup or leader succession across all pods
+    const userMemberships = await db
+      .select({ teamId: teamMembers.teamId })
+      .from(teamMembers)
+      .where(eq(teamMembers.userId, user.id));
+
+    for (const membership of userMemberships) {
       const remainingMembers = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(and(eq(users.teamId, currentUser.teamId), ne(users.id, user.id)));
+        .select({ userId: teamMembers.userId })
+        .from(teamMembers)
+        .where(and(eq(teamMembers.teamId, membership.teamId), ne(teamMembers.userId, user.id)))
+        .orderBy(teamMembers.joinedAt);
 
       if (remainingMembers.length === 0) {
         // If user was the only member, delete the team
-        await db.delete(teams).where(eq(teams.id, currentUser.teamId));
+        await db.delete(teams).where(eq(teams.id, membership.teamId));
       } else {
         // If user was team leader, pass the crown to the next member
-        const team = await db.select().from(teams).where(eq(teams.id, currentUser.teamId)).limit(1).then(res => res[0]);
+        const team = await db
+          .select({ createdBy: teams.createdBy })
+          .from(teams)
+          .where(eq(teams.id, membership.teamId))
+          .limit(1)
+          .then((res) => res[0]);
+
         if (team && team.createdBy === user.id) {
-          await db.update(teams).set({ createdBy: remainingMembers[0].id }).where(eq(teams.id, currentUser.teamId));
+          const nextLeaderId = remainingMembers[0].userId;
+          await db.update(teams).set({ createdBy: nextLeaderId }).where(eq(teams.id, membership.teamId));
+          await db
+            .update(teamMembers)
+            .set({ role: 'leader' })
+            .where(and(eq(teamMembers.teamId, membership.teamId), eq(teamMembers.userId, nextLeaderId)));
         }
       }
     }

@@ -9,7 +9,9 @@ export const QUERY_KEYS = {
     categories: ["categories"] as const,
   },
   teams: {
-    me: ["team", "me"] as const,
+    all: ["teams"] as const,
+    detail: (id: string) => ["teams", id] as const,
+    me: ["teams"] as const,
   },
   notifications: {
     all: ["notifications"] as const,

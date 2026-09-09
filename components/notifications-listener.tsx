@@ -77,8 +77,8 @@ export function NotificationsListener() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "team_events" },
         () => {
-          // Instantly refresh the team activity feed when a teammate logs an event
-          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.teams.me });
+          // Instantly refresh the teams activity feeds and overview when a teammate logs an event
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.teams.all });
         }
       )
       .subscribe((status) => {

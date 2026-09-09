@@ -99,7 +99,7 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete, onStopRepeating }
     statusColor = "bg-green-100 dark:bg-green-950/60 text-green-800 dark:text-green-400";
   } else if (isGracePeriod) {
     statusText = `Grace (${remainingHoursInGrace}h left)`;
-    statusColor = "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-900";
+    statusColor = "text-amber-700 bg-amber-200";
   } else if (isMissed) {
     statusText = "Missed";
     statusColor = "bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400";

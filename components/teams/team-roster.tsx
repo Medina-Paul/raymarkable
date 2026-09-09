@@ -15,6 +15,7 @@ and controls to nudge teammates or remove members (leader only).
 import { formatTime } from "@/lib/utils/formatters";
 
 interface TeamRosterProps {
+  teamId?: string;
   members: User[];
   leaderId: string;
   currentUserId: string | null;
@@ -22,6 +23,7 @@ interface TeamRosterProps {
 }
 
 export function TeamRoster({
+  teamId = "",
   members = [],
   leaderId,
   currentUserId,
@@ -119,15 +121,15 @@ export function TeamRoster({
               member.activeHabits.map((habit) => (
                 <div
                   key={habit.id}
-                  className={`flex items-center justify-between px-3 py-2 border transition-colors ${
+                  className={`flex items-center justify-between px-3 py-2 ${
                     habit.isGrace
-                      ? "bg-amber-500/10 border-amber-500/30 dark:bg-amber-500/15 dark:border-amber-500/40"
+                      ? "bg-gray-50"
                       : "bg-gray-50 dark:bg-zinc-800/60 border-transparent dark:border-zinc-800"
                   }`}
                 >
                   <div className="flex items-center gap-2 truncate pr-2 flex-1 min-w-0">
                     {habit.isGrace && (
-                      <span className="shrink-0 text-[10px] uppercase font-bold tracking-wide text-amber-700 bg-amber-200/80 dark:bg-amber-900/60 dark:text-amber-300 px-1.5 py-0.5 rounded">
+                      <span className="shrink-0 text-[10px] uppercase font-bold tracking-wide bg-amber-200 text-amber-700 dark:text-amber-300 px-1.5 py-0.5">
                         Grace Period
                       </span>
                     )}
@@ -144,7 +146,7 @@ export function TeamRoster({
                     <button
                       onClick={() => {
                         nudgeMutation.mutate(
-                          { targetId: member.id, taskTitle: habit.title },
+                          { teamId, targetId: member.id, taskTitle: habit.title },
                           {
                             onSuccess: () => toast.success(`Nudged ${member.name}!`),
                             onError: (err) => toast.error(err.message || "Failed to nudge teammate"),

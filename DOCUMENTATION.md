@@ -143,12 +143,20 @@ habit_logs (Historical Ledger)
 ├── status: boolean (default true)
 └── UNIQUE(habit_id, completed_date)
 
-teams (Max 5 Pods)
+teams (Accountability Pods)
 ├── id: uuid (PK)
 ├── name: varchar(25)
 ├── created_by: uuid (FK -> users.id, ON DELETE CASCADE)
 ├── abandoned_at: timestamp (set when 0 members remain)
 └── created_at: timestamp
+
+team_members (Junction Table - Up to 10 Pods per User)
+├── id: uuid (PK)
+├── team_id: uuid (FK -> teams.id, ON DELETE CASCADE)
+├── user_id: uuid (FK -> users.id, ON DELETE CASCADE)
+├── role: varchar(20) ('leader' | 'member')
+├── joined_at: timestamp
+└── UNIQUE(team_id, user_id)
 
 notifications (Teammate Nudges)
 ├── id: uuid (PK)
@@ -182,6 +190,7 @@ To ensure sub-millisecond query execution under concurrent loads, Drizzle define
 - **`habits`**: `habits_user_date_idx (userId, date)`, `habits_user_active_idx (userId, isActive)`, `habits_user_id_idx (userId)`
 - **`habit_logs`**: `habit_logs_habit_date_idx (habitId, completedDate)`
 - **`teams`**: `teams_created_by_idx (createdBy)`
+- **`team_members`**: `team_members_team_id_idx (teamId)`, `team_members_user_id_idx (userId)`, `team_members_team_user_uq (teamId, userId)`
 - **`notifications`**: `notifications_receiver_read_idx (receiverId, isRead)`, `notifications_receiver_idx (receiverId)`
 - **`team_events`**: `team_events_team_created_idx (teamId, createdAt)`, `team_events_team_id_idx (teamId)`, `team_events_created_at_idx (createdAt)`
 - **`push_subscriptions`**: `push_subscriptions_user_id_idx (userId)`
@@ -287,13 +296,14 @@ All endpoints are mounted under prefix `/api/v1` via Next.js catch-all route han
 - `GET /api/v1/categories`: Lists active category presets for the user.
 - `DELETE /api/v1/categories/:id`: Soft-hides a category preset from dropdown suggestions (`isActive = false`) while preserving historical records.
 
-### Team & Accountability Endpoints
-- `GET /api/v1/teams/me`: Returns current pod details, 5-member roster with today's pending tasks & live streaks, and the 50 most recent activity feed events.
-- `POST /api/v1/teams`: Creates a new pod and designates caller as leader.
-- `POST /api/v1/teams/join`: Joins a pod via UUID invite code (enforces 5-member limit).
-- `POST /api/v1/teams/leave`: Leaves current pod, handles leader transfer or abandonment timestamp.
-- `POST /api/v1/teams/remove-member`: Leader-only kick action.
-- `POST /api/v1/teams/nudge`: Sends accountability nudge (rate-limited to 5/min, broadcasts to `team_events` and `notifications`).
+### Team & Accountability Endpoints (Multi-Team Architecture)
+- `GET /api/v1/teams`: Returns list of all accountability pods the caller belongs to (with IDs, names, member counts, member avatar snippets, and leader flags).
+- `GET /api/v1/teams/:teamId`: Returns pod details, 5-member roster with today's pending tasks & live streaks, and the 50 most recent activity feed events for a specific pod.
+- `POST /api/v1/teams`: Creates a new pod and designates caller as leader (enforces max 10 pods per user).
+- `POST /api/v1/teams/join`: Joins a pod via UUID invite code (enforces max 10 pods per user and max 5 members per pod).
+- `POST /api/v1/teams/:teamId/leave`: Leaves specific pod, handles leader transfer or abandonment timestamp.
+- `POST /api/v1/teams/:teamId/remove-member`: Leader-only kick action for a specific pod.
+- `POST /api/v1/teams/:teamId/nudge`: Sends accountability nudge to a teammate in a specific pod (rate-limited to 5/min, broadcasts to `team_events` and `notifications`).
 
 ### Push Notification Endpoints
 - `POST /api/v1/push/subscribe`: Registers or updates a browser's Web Push subscription with public key and auth secret.

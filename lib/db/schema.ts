@@ -128,6 +128,30 @@ export const teams = pgTable(
 );
 
 /*
+TEAM MEMBERS TABLE (Junction Table)
+Enables users to join multiple accountability pods (up to 10 pods per user).
+*/
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 20 }).default("member").notNull(), // 'leader' | 'member'
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("team_members_team_user_uq").on(t.teamId, t.userId),
+    index("team_members_team_id_idx").on(t.teamId),
+    index("team_members_user_id_idx").on(t.userId),
+  ]
+);
+
+/*
 NOTIFICATIONS TABLE
 In-app nudges and alerts sent from teammates.
 */

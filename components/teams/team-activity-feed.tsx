@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from "react";
 import Image from "next/image";
-import { Sparkles } from "lucide-react";
+import Link from "next/link";
 import type { TeamEvent } from "@/lib/hooks/use-teams";
 
 /*
@@ -32,14 +32,17 @@ export function TeamActivityFeed({ events = [] }: { events: TeamEvent[] }) {
       <div id="live-activity" className="flex-1 overflow-y-auto space-y-4 px-4">
         {events.length === 0 ? (
           <div className="text-center text-gray-400 dark:text-zinc-500 py-12">
-            <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-20" />
             <p>No activity yet. Start checking off habits!</p>
           </div>
         ) : (
           events.map((e) => (
-            <div key={e.id} className="flex gap-2 sm:gap-4">
-              {/* Actor Avatar */}
-              <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 text-black dark:text-white flex-shrink-0 flex items-center justify-center font-bold relative overflow-hidden">
+            <div key={e.id} className="flex gap-2 sm:gap-4 items-start">
+              {/* Actor Avatar Link */}
+              <Link
+                href={`/dashboard/profile/${e.actor.id}`}
+                className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 text-black dark:text-white flex-shrink-0 flex items-center justify-center font-bold relative overflow-hidden hover:opacity-80 transition-opacity"
+                title={`View ${e.actor.name || 'User'}'s Profile`}
+              >
                 {e.actor.avatarUrl ? (
                   <Image
                     src={e.actor.avatarUrl}
@@ -51,14 +54,17 @@ export function TeamActivityFeed({ events = [] }: { events: TeamEvent[] }) {
                 ) : (
                   e.actor.name?.[0]?.toUpperCase() || "?"
                 )}
-              </div>
+              </Link>
 
               {/* Message & Timestamp */}
               <div className="min-w-0 flex-1">
                 <p className="text-gray-800 dark:text-zinc-200 break-words">
-                  <span className="font-bold text-gray-900 dark:text-white">
+                  <Link
+                    href={`/dashboard/profile/${e.actor.id}`}
+                    className="font-bold text-gray-900 dark:text-white hover:opacity-80 transition-opacity"
+                  >
                     {e.actor.name || "Anonymous"}
-                  </span>{" "}
+                  </Link>{" "}
                   {e.message}
                 </p>
                 <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">
@@ -76,3 +82,4 @@ export function TeamActivityFeed({ events = [] }: { events: TeamEvent[] }) {
     </div>
   );
 }
+

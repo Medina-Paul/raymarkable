@@ -164,11 +164,11 @@ export function LegalView({ initialTab = "privacy" }: LegalViewProps) {
               <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 If you have questions about this Privacy Policy or your data, you can contact the developer at{" "}
                 <a
-                  href="mailto:support@raymarkable.com"
+                  href="mailto:paulbenedictmedina@gmail.com"
                   className="text-black dark:text-white underline underline-offset-2 font-medium"
                 >
-                  support@raymarkable.com
-                </a>.
+                  paulbenedictmedina@gmail.com
+                </a>
               </p>
             </section>
           </article>

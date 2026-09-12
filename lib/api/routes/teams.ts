@@ -242,7 +242,7 @@ export const teamsRoutes = new Elysia()
     const now = new Date();
     const nowMs = now.getTime();
 
-    // 1. Batch query active habits for today and yesterday (48h grace window)
+    // 1. Batch query active habits for today and yesterday (24h grace window)
     const activeHabitsData = await db
       .select({
         id: habits.id,
@@ -260,7 +260,7 @@ export const teamsRoutes = new Elysia()
         )
       );
 
-    // Group active habits by member, filtering out any habit exceeding 48h grace
+    // Group active habits by member, filtering out any habit exceeding 24h grace
     const memberHabitsMap = new Map<
       string,
       Array<{ id: string; title: string; deadlineTime: string | null; date: string; isGrace: boolean }>

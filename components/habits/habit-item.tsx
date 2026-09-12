@@ -44,7 +44,7 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete, onStopRepeating }
     };
   }, [habit.id]);
 
-  // Determine status with 48-hour grace period
+  // Determine status with 24-hour grace period
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -99,7 +99,7 @@ export function HabitItem({ habit, onToggle, onEdit, onDelete, onStopRepeating }
     statusColor = "bg-green-100 dark:bg-green-950/60 text-green-800 dark:text-green-400";
   } else if (isGracePeriod) {
     statusText = `Grace (${remainingHoursInGrace}h left)`;
-    statusColor = "text-amber-700 bg-amber-200";
+    statusColor = "bg-amber-200 text-amber-700 dark:text-amber-300";
   } else if (isMissed) {
     statusText = "Missed";
     statusColor = "bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400";

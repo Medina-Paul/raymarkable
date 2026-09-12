@@ -12,7 +12,7 @@
 3. [Database Schema & Data Model](#database-schema--data-model)
 4. [Core Features & Domain Logic](#core-features--domain-logic)
    - [Habit Tracking Modes](#habit-tracking-modes)
-   - [Anti-Cheat & 48-Hour Grace Period](#anti-cheat--48-hour-grace-period)
+   - [Anti-Cheat & 24-Hour Grace Period](#anti-cheat--24-hour-grace-period)
    - [Dynamic Streak Engine](#dynamic-streak-engine)
    - [Accountability Pods & Teammate Nudges](#accountability-pods--teammate-nudges)
    - [Analytics & Visualizations](#analytics--visualizations)
@@ -217,12 +217,12 @@ Habits support two distinct operational modes:
 - If scheduled and no instance exists for today, a fresh pending habit (`current_value = 0`, `is_active = true`) is automatically generated for today.
 - **Stop Repeating Control**: Users can click **Stop Repeating** on any recurring habit item to set `scheduled_days = null` across that habit series (`PATCH /api/v1/habits/:id/stop-repeating`), stopping future generations while preserving all past completed history intact.
 
-### Anti-Cheat & 48-Hour Grace Period
+### Anti-Cheat & 24-Hour Grace Period
 
 To ensure data integrity and discourage retroactively falsifying streaks:
-- Users can create and complete habits for **Today**, **Tomorrow**, or **Yesterday** (a 48-hour grace window).
+- Users can create and complete habits for **Today**, **Tomorrow**, or **Yesterday** (a 24-hour grace window).
 - Any attempt to create or log a habit older than `Yesterday` is rejected with `HTTP 400 Bad Request`.
-- On the UI, habits past their deadline but within the 48-hour window receive an amber `Grace (Xh left)` badge. Once the grace window elapses, incomplete habits turn red with a strike-through `Missed` status.
+- On the UI, habits past their deadline but within the 24-hour window receive an amber `Grace (Xh left)` badge. Once the grace window elapses, incomplete habits turn red with a strike-through `Missed` status.
 
 ### Dynamic Streak Engine
 
@@ -230,7 +230,7 @@ Streaks are **never statically incremented**; they are dynamically computed from
 1. Historical dates from `habit_logs` are deduplicated and sorted chronologically: `[YYYY-MM-DD, ...]`.
 2. Safe date normalization guarantees PostgreSQL UTC midnight date stamps deserialize without 1-day shifts across negative timezones.
 3. Consecutive day intervals are calculated using DST-immune `Date.UTC` timestamps.
-4. **48-Hour Liveness Grace**: If the most recent completion is **`clientToday`**, the active streak increments. If the last log is **`clientYesterday`**, the streak remains alive until midnight. If no tasks were completed yesterday or today, the dynamic streak drops to `0`.
+4. **24-Hour Liveness Grace**: If the most recent completion is **`clientToday`**, the active streak increments. If the last log is **`clientYesterday`**, the streak remains alive until midnight. If no tasks were completed yesterday or today, the dynamic streak drops to `0`.
 5. **Historical Benchmark Preservation**: `bestStreak` retains historical personal records (e.g. 13) and automatically upgrades in the database whenever `currentStreak` surpasses the record.
 
 ### Accountability Pods & Teammate Nudges
@@ -285,7 +285,7 @@ All endpoints are mounted under prefix `/api/v1` via Next.js catch-all route han
 
 ### Habit Endpoints
 - `GET /api/v1/habits`: Fetches all user habits with category names and active status. Automatically auto-spawns scheduled recurring habits if today matches their repeat schedule.
-- `POST /api/v1/habits`: Creates a new habit (validates 48h grace window, auto-creates/reactivates category).
+- `POST /api/v1/habits`: Creates a new habit (validates 24h grace window, auto-creates/reactivates category).
 - `PUT /api/v1/habits/:id`: Updates habit title, date, deadline, scheduled days, or targets.
 - `PATCH /api/v1/habits/:id/progress`: Increments/decrements numeric habit progress or sets exact value, updates `habit_logs`, and broadcasts social celebration if completed.
 - `PATCH /api/v1/habits/:id/toggle`: 1-click toggle for boolean habits.
@@ -374,7 +374,7 @@ raymarkable/
 │   └── providers.tsx                 # ThemeProvider, QueryClientProvider, PwaProvider
 ├── components/
 │   ├── habits/
-│   │   ├── habit-item.tsx            # Stepper / toggle item with 48h grace badge
+│   │   ├── habit-item.tsx            # Stepper / toggle item with 24h grace badge
 │   │   └── habit-modal.tsx           # Create / Edit modal with time/day picker
 │   ├── profile/
 │   │   ├── edit-profile-modal.tsx    # Crop avatar with react-easy-crop & upload

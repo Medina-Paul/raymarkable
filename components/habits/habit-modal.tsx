@@ -284,7 +284,7 @@ export function HabitModal({ habit, isPending, onClose, onCreate, onUpdate }: Pr
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-semibold text-black dark:text-white mb-1.5">
-                Date <span className="text-gray-400 dark:text-zinc-500 font-normal text-xs">(48h Grace)</span>
+                Date <span className="text-gray-400 dark:text-zinc-500 font-normal text-xs">(24h Grace)</span>
               </label>
               <input
                 required

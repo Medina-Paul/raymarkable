@@ -125,7 +125,7 @@ export const habitsRoutes = new Elysia()
   
   /*
   POST /api/v1/habits
-  Creates a new habit for today, tomorrow, or yesterday (enforcing a 48h grace window).
+  Creates a new habit for today, tomorrow, or yesterday (enforcing a 24h grace window).
   */
   .post('/habits', async ({ user, body, set }) => {
     const { date, habitType = 'boolean', targetValue, scheduledDays } = body;
@@ -134,14 +134,14 @@ export const habitsRoutes = new Elysia()
     const category = body.category.trim().substring(0, 25);
     const unit = body.unit?.trim().substring(0, 20) || null;
     
-    // Anti-cheat / 48-Hour Grace Window:
+    // Anti-cheat / 24-Hour Grace Window:
     const yesterdayObj = new Date();
     yesterdayObj.setDate(yesterdayObj.getDate() - 1);
     const yesterdayStr = formatLocalDate(yesterdayObj);
     
     if (date < yesterdayStr) {
       set.status = 400;
-      return { success: false, error: 'Cannot create habits older than the 48-hour grace period' };
+      return { success: false, error: 'Cannot create habits older than the 24-hour grace period' };
     }
     
     if (!title || !category) {
@@ -203,14 +203,14 @@ export const habitsRoutes = new Elysia()
       scheduledDays
     } = body;
     
-    // Anti-cheat / 48-Hour Grace Window:
+    // Anti-cheat / 24-Hour Grace Window:
     const yesterdayObj = new Date();
     yesterdayObj.setDate(yesterdayObj.getDate() - 1);
     const yesterdayStr = formatLocalDate(yesterdayObj);
     
     if (date < yesterdayStr) {
       set.status = 400;
-      return { success: false, error: 'Cannot set habit dates older than the 48-hour grace period' };
+      return { success: false, error: 'Cannot set habit dates older than the 24-hour grace period' };
     }
     
     let categoryRecord = await db.select().from(categories).where(and(eq(categories.name, category), eq(categories.userId, user.id))).limit(1).then(res => res[0]);

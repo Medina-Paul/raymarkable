@@ -2,7 +2,7 @@
  * SINGLE SOURCE OF TRUTH (SSOT) FOR STREAK CALCULATIONS
  * 
  * Handles consecutive active days calculation from completion date ledgers.
- * Supports the 48-hour grace period (streaks stay alive if logged Today or Yesterday).
+ * Supports the 24-hour grace period (streaks stay alive if logged Today or Yesterday).
  */
 
 export interface StreakResult {

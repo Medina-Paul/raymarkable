@@ -8,7 +8,7 @@ USE GROUPED HABITS HOOK
 
 Encapsulates all domain logic for habits page filtering:
 1. Keeps track of live time (updates every minute).
-2. Calculates 48-hour grace periods for missed habits.
+2. Calculates 24-hour grace periods for missed habits.
 3. Filters habits by tab (Today, All, Archive, or Category).
 4. Groups habits chronologically by date descending.
 5. Formats date headers ("Today", "Yesterday (Grace Period)", etc.).
@@ -70,7 +70,7 @@ export function useGroupedHabits(
     let filtered = habits;
 
     if (effectiveTab === "Archive") {
-      // Historical completed habits (past dates) AND expired habits (>48h grace)
+      // Historical completed habits (past dates) AND expired habits (>24h grace)
       filtered = habits.filter(
         (h) => (h.completed && h.date < todayStr) || isMissed(h)
       );

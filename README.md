@@ -29,7 +29,7 @@ For comprehensive engineering details, database ER diagrams, API specifications,
 - **Repeating Habits Engine**:
   - Automatically auto-spawns fresh pending habits on scheduled days (`scheduledDays`).
   - Dedicated "Stop Repeating" controls to cancel future auto-generations without deleting past history.
-- **Anti-Cheat & 48-Hour Grace Window**: Strict anti-cheat logic prevents retroactively logging missed habits into the deep past while providing a 48-hour grace period for yesterday's habits.
+- **Anti-Cheat & 24-Hour Grace Window**: Strict anti-cheat logic prevents retroactively logging missed habits into the deep past while providing a 24-hour grace period for yesterday's habits.
 - **Timezone-Anchored Dynamic Streak Engine**: Streaks are dynamically computed on-the-fly from immutable completion logs (`habit_logs`) anchored to the user's localized device date (`clientDate`), ensuring zero timezone drift or desync.
 - **Accountability Pods (Max 5 Members)**:
   - Join or create small accountability teams via secret invite codes.
